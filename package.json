@@ -1,0 +1,19 @@
+{
+  "name": "paulopina.com",
+  "private": true,
+  "workspaces": [
+    "apps/*/web",
+    "apps/*/api"
+  ],
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "scripts": {
+    "cf:login": "wrangler login",
+    "hello:web:dev": "npm --workspace apps/hello/web run dev",
+    "hello:api:dev": "npm --workspace apps/hello/api run dev",
+    "hello:api:deploy": "npm --workspace apps/hello/api run deploy",
+    "hello:db:migrate:local": "wrangler d1 migrations apply hello_db --local --cwd apps/hello/api",
+    "hello:db:migrate:remote": "wrangler d1 migrations apply hello_db --remote --cwd apps/hello/api"
+  }
+}
