@@ -10,10 +10,24 @@
   },
   "scripts": {
     "cf:login": "wrangler login",
+
     "hello:web:dev": "npm --workspace apps/hello/web run dev",
     "hello:api:dev": "npm --workspace apps/hello/api run dev",
     "hello:api:deploy": "npm --workspace apps/hello/api run deploy",
     "hello:db:migrate:local": "wrangler d1 migrations apply hello_db --local --cwd apps/hello/api",
-    "hello:db:migrate:remote": "wrangler d1 migrations apply hello_db --remote --cwd apps/hello/api"
+    "hello:db:migrate:remote": "wrangler d1 migrations apply hello_db --remote --cwd apps/hello/api",
+
+    "plusultra:web:dev": "npm --workspace apps/plusultra/web run dev",
+    "plusultra:api:dev": "npm --workspace apps/plusultra/api run dev",
+    "plusultra:api:deploy": "npm --workspace apps/plusultra/api run deploy",
+    "plusultra:db:migrate:local": "wrangler d1 migrations apply plusultra_db --local --cwd apps/plusultra/api",
+    "plusultra:db:migrate:remote": "wrangler d1 migrations apply plusultra_db --remote --cwd apps/plusultra/api",
+
+    "fotocity:web:dev": "npm --workspace apps/fotocity/web run dev",
+    "fotocity:api:dev": "npm --workspace apps/fotocity/api run dev",
+    "fotocity:api:deploy": "npm --workspace apps/fotocity/api run deploy",
+    "fotocity:web:build": "npm --workspace apps/fotocity/web run build",
+    "fotocity:web:deploy": "wrangler pages deploy apps/fotocity/web/dist --project-name=fotocity"
   }
 }
+

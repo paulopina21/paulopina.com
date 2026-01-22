@@ -1,14 +1,14 @@
-name = "hello-api"
+name = "plusultra-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
 account_id = "1393a4b8ac9bc429259644464a7f874e"
 
 [vars]
-APP_NAME = "hello"
+APP_NAME = "plusultra"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "hello_db"
-database_id = "68335c1e-cb82-436b-889f-6687bd138b59"
+database_name = "plusultra_db"
+database_id = "0a0afb32-0a35-4576-9211-078024aa4494"
 migrations_dir = "../db/migrations"
