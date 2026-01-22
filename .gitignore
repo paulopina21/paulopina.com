@@ -25,5 +25,8 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Claude Code
+.claude/
+
 # TypeScript
 *.tsbuildinfo

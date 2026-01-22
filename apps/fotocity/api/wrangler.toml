@@ -4,7 +4,10 @@ compatibility_date = "2024-01-01"
 
 account_id = "1393a4b8ac9bc429259644464a7f874e"
 
-# Custom domain
+# Habilita workers.dev
+workers_dev = true
+
+# Rota customizada
 [[routes]]
 pattern = "api-fotocity.paulopina.com/*"
 zone_name = "paulopina.com"
