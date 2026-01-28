@@ -5,8 +5,8 @@ const PHOTO_SIZES = [
   '15x15', '15x20', '20x20', '20x25', '20x30', '25x25', '30x30', '30x40', '30x42'
 ]
 
-// Use the existing Hostinger API until R2 is enabled
-const API_BASE = 'https://blanchedalmond-eland-691683.hostingersite.com'
+// API base - usa a API do Worker (R2) em produção ou proxy local em dev
+const API_BASE = import.meta.env.VITE_API_URL || ''
 const WEBHOOK_URL = 'https://n8n.fotocity.com.br/webhook/envio-fotos'
 
 function formatPhoneBR(value: string): string {
@@ -120,7 +120,7 @@ export default function Upload() {
         formData.append('img_file', file)
         formData.append('action', 'add_image')
 
-        await fetch(`${API_BASE}/photo.php`, {
+        await fetch(`${API_BASE}/api/photos`, {
           method: 'POST',
           body: formData,
         })
@@ -195,7 +195,15 @@ export default function Upload() {
       </div>
 
       <div className="upload-container">
-        <label className="upload-box" onClick={() => fileInputRef.current?.click()}>
+        <div
+          className="upload-box"
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            handleFiles(e.dataTransfer.files)
+          }}
+        >
           <span>
             <i className="fas fa-cloud-upload-alt"></i> Clique ou arraste suas fotos aqui
           </span>
@@ -204,9 +212,13 @@ export default function Upload() {
             type="file"
             accept="image/*,.heic,.HEIC,.raw"
             multiple
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={(e) => {
+              handleFiles(e.target.files)
+              e.target.value = '' // Reset para permitir selecionar os mesmos arquivos novamente
+            }}
+            style={{ display: 'none' }}
           />
-        </label>
+        </div>
 
         {message && (
           <div className={`message ${message.type}`}>{message.text}</div>

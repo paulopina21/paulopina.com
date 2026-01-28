@@ -18,10 +18,10 @@ APP_NAME = "fotocity"
 AUTH_USER = "admin"
 AUTH_PASS = "fotocity2024"
 
-# R2 Bucket - habilite R2 no dashboard e descomente:
-# [[r2_buckets]]
-# binding = "PHOTOS"
-# bucket_name = "fotocity-photos"
+# R2 Bucket para armazenamento de fotos
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "fotocity-photos"
 
 # KV para sessões
 [[kv_namespaces]]
