@@ -307,6 +307,19 @@ export default function Upload() {
           {minImages === null && maxImages !== null && ` (maximo ${maxImages})`}
         </div>
 
+        {/* Polaroid mode hint */}
+        {isPolaroidMode && files.length > 0 && (
+          <div className="polaroid-hint">
+            <i className="fas fa-info-circle"></i>
+            <span>
+              Clique em cada foto para posicionar e adicionar legenda.
+              {polaroidEdits.size > 0 && (
+                <strong> ({polaroidEdits.size}/{files.length} editadas)</strong>
+              )}
+            </span>
+          </div>
+        )}
+
         <div className="preview-grid">
           {previews.map((preview, index) => (
             <div
@@ -319,8 +332,14 @@ export default function Upload() {
                 src={polaroidPreviews.get(index) || preview}
                 alt={`Preview ${index + 1}`}
               />
+              {isPolaroidMode && !polaroidEdits.has(index) && (
+                <div className="edit-overlay">
+                  <i className="fas fa-edit"></i>
+                  <span>Editar</span>
+                </div>
+              )}
               {isPolaroidMode && polaroidEdits.has(index) && (
-                <span className="edit-badge">Editado</span>
+                <span className="edit-badge edited">Editado</span>
               )}
               <div
                 className="delete"
