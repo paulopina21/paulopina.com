@@ -1,6 +1,12 @@
 // Photo Editor Types
 import { PhotoSizeInfo } from '../../utils/photoSizes'
 
+// Polaroid border style options
+export type PolaroidBorderStyle = 'bottom' | 'full'
+
+// Orientation for rectangular photos
+export type PhotoOrientation = 'portrait' | 'landscape'
+
 export interface PhotoEditState {
   // Zoom level (1.0 = fit to frame, > 1.0 = zoomed in)
   zoom: number
@@ -9,6 +15,10 @@ export interface PhotoEditState {
   panY: number
   // Filter applied
   filter: FilterOption
+  // Orientation for rectangular photos
+  orientation?: PhotoOrientation
+  // Polaroid border style
+  polaroidBorder?: PolaroidBorderStyle
   // Caption (only for Polaroid)
   caption?: string
   font?: FontOption
@@ -44,12 +54,14 @@ export interface PhotoEditorProps {
 }
 
 // Default edit state
-export function getDefaultEditState(isPolaroid: boolean): PhotoEditState {
+export function getDefaultEditState(isPolaroid: boolean, isRectangular: boolean = false): PhotoEditState {
   return {
     zoom: 1,
     panX: 0,
     panY: 0,
     filter: FILTERS[0],
+    orientation: isRectangular ? 'portrait' : undefined,
+    polaroidBorder: isPolaroid ? 'bottom' : undefined,
     caption: isPolaroid ? '' : undefined,
     font: isPolaroid ? FONTS[0] : undefined,
     color: isPolaroid ? COLORS[0] : undefined,

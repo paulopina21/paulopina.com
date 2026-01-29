@@ -891,6 +891,107 @@ body {
   color: #1565c0;
 }
 
+/* Orientation buttons (portrait/landscape) */
+.orientation-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.orientation-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.2s;
+  min-width: 80px;
+}
+
+.orientation-btn:hover {
+  border-color: #999;
+  background: #f5f5f5;
+}
+
+.orientation-btn.active {
+  border-color: #1e88e5;
+  background: #e3f2fd;
+}
+
+.orientation-icon {
+  width: 32px;
+  height: auto;
+  color: #666;
+}
+
+.orientation-btn.active .orientation-icon {
+  color: #1565c0;
+}
+
+.orientation-btn span {
+  font-size: 11px;
+  font-weight: 500;
+  color: #666;
+}
+
+.orientation-btn.active span {
+  color: #1565c0;
+}
+
+/* Border style buttons (Polaroid) */
+.border-style-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.border-style-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.2s;
+  min-width: 80px;
+}
+
+.border-style-btn:hover {
+  border-color: #999;
+  background: #f5f5f5;
+}
+
+.border-style-btn.active {
+  border-color: #1e88e5;
+  background: #e3f2fd;
+}
+
+.border-style-icon {
+  width: 28px;
+  height: auto;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
+.border-style-btn.active .border-style-icon {
+  border-color: #1565c0;
+}
+
+.border-style-btn span {
+  font-size: 11px;
+  font-weight: 500;
+  color: #666;
+}
+
+.border-style-btn.active span {
+  color: #1565c0;
+}
+
 /* Caption input in photo editor */
 .caption-input {
   padding: 10px 12px;

@@ -7,6 +7,8 @@ import {
   FONTS,
   COLORS,
   loadFonts,
+  PolaroidBorderStyle,
+  PhotoOrientation,
 } from './types'
 import { renderPreview, loadImage, drawPreviewOnCanvas } from './canvasUtils'
 
@@ -20,8 +22,9 @@ export default function PhotoEditor({
   onSave,
   onCancel,
 }: PhotoEditorProps) {
+  const isRectangular = !sizeInfo.isPolaroid && sizeInfo.orientation !== 'square'
   const [state, setState] = useState<PhotoEditState>(() =>
-    editState || getDefaultEditState(sizeInfo.isPolaroid)
+    editState || getDefaultEditState(sizeInfo.isPolaroid, isRectangular)
   )
   const [fontsReady, setFontsReady] = useState(!sizeInfo.isPolaroid)
   const [saving, setSaving] = useState(false)
@@ -39,10 +42,39 @@ export default function PhotoEditor({
   const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null)
   const [initialZoom, setInitialZoom] = useState(1)
 
-  // Calculate preview scale
-  const previewScale = PREVIEW_MAX_WIDTH / sizeInfo.widthPx
-  const previewWidth = PREVIEW_MAX_WIDTH
-  const previewHeight = Math.round(sizeInfo.heightPx * previewScale)
+  // Calculate preview dimensions based on orientation
+  const getPreviewDimensions = () => {
+    let width = sizeInfo.widthPx
+    let height = sizeInfo.heightPx
+
+    // Handle landscape orientation for rectangular photos
+    if (isRectangular && state.orientation === 'landscape') {
+      width = sizeInfo.heightPx
+      height = sizeInfo.widthPx
+    }
+
+    // Handle full border Polaroid (different aspect ratio)
+    if (sizeInfo.isPolaroid && state.polaroidBorder === 'full') {
+      const borderSide = sizeInfo.widthPx * 0.06
+      const borderTop = sizeInfo.widthPx * 0.06
+      const borderBottom = sizeInfo.widthPx * 0.20
+      const photoSize = sizeInfo.widthPx - borderSide * 2
+      width = photoSize + borderSide * 2
+      height = photoSize + borderTop + borderBottom
+    }
+
+    const scale = PREVIEW_MAX_WIDTH / width
+    return {
+      scale,
+      width: PREVIEW_MAX_WIDTH,
+      height: Math.round(height * scale),
+    }
+  }
+
+  const previewDims = getPreviewDimensions()
+  const previewScale = previewDims.scale
+  const previewWidth = previewDims.width
+  const previewHeight = previewDims.height
 
   // Load fonts for Polaroid
   useEffect(() => {
@@ -241,6 +273,74 @@ export default function PhotoEditor({
               </div>
             </div>
 
+            {/* Orientation control for rectangular photos */}
+            {isRectangular && (
+              <div className="control-section">
+                <label>Orientação</label>
+                <div className="orientation-buttons">
+                  <button
+                    type="button"
+                    className={`orientation-btn ${state.orientation === 'portrait' ? 'active' : ''}`}
+                    onClick={() => handleStateChange({ orientation: 'portrait' as PhotoOrientation, zoom: 1, panX: 0, panY: 0 })}
+                    title="Vertical (Retrato)"
+                  >
+                    <svg viewBox="0 0 24 32" className="orientation-icon">
+                      <rect x="2" y="2" width="20" height="28" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/>
+                      <circle cx="12" cy="14" r="5" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M7 20 Q12 26 17 20" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                    </svg>
+                    <span>Vertical</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`orientation-btn ${state.orientation === 'landscape' ? 'active' : ''}`}
+                    onClick={() => handleStateChange({ orientation: 'landscape' as PhotoOrientation, zoom: 1, panX: 0, panY: 0 })}
+                    title="Horizontal (Paisagem)"
+                  >
+                    <svg viewBox="0 0 32 24" className="orientation-icon">
+                      <rect x="2" y="2" width="28" height="20" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/>
+                      <circle cx="16" cy="10" r="4" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M10 16 Q16 20 22 16" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                    </svg>
+                    <span>Horizontal</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Polaroid border style */}
+            {sizeInfo.isPolaroid && (
+              <div className="control-section">
+                <label>Estilo da Borda</label>
+                <div className="border-style-buttons">
+                  <button
+                    type="button"
+                    className={`border-style-btn ${state.polaroidBorder === 'bottom' ? 'active' : ''}`}
+                    onClick={() => handleStateChange({ polaroidBorder: 'bottom' as PolaroidBorderStyle })}
+                    title="Borda só embaixo"
+                  >
+                    <svg viewBox="0 0 24 30" className="border-style-icon">
+                      <rect x="0" y="0" width="24" height="24" fill="#ddd"/>
+                      <rect x="0" y="24" width="24" height="6" fill="#fff"/>
+                    </svg>
+                    <span>Clássico</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`border-style-btn ${state.polaroidBorder === 'full' ? 'active' : ''}`}
+                    onClick={() => handleStateChange({ polaroidBorder: 'full' as PolaroidBorderStyle })}
+                    title="Borda completa"
+                  >
+                    <svg viewBox="0 0 28 34" className="border-style-icon">
+                      <rect x="0" y="0" width="28" height="34" fill="#fff"/>
+                      <rect x="2" y="2" width="24" height="24" fill="#ddd"/>
+                    </svg>
+                    <span>Completo</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Filter control */}
             <div className="control-section">
               <label>Filtro</label>
@@ -323,7 +423,11 @@ export default function PhotoEditor({
         <div className="photo-editor-footer">
           <div className="photo-editor-info">
             <i className="fas fa-print"></i>
-            <span>Resolução: {sizeInfo.widthPx}x{sizeInfo.heightPx}px (300 DPI)</span>
+            <span>
+              Resolução: {isRectangular && state.orientation === 'landscape'
+                ? `${sizeInfo.heightPx}x${sizeInfo.widthPx}`
+                : `${sizeInfo.widthPx}x${sizeInfo.heightPx}`}px (300 DPI)
+            </span>
           </div>
           <div className="photo-editor-actions">
             <button

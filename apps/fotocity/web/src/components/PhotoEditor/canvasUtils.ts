@@ -118,6 +118,30 @@ function applyFilter(
 }
 
 /**
+ * Get effective dimensions considering orientation
+ */
+function getEffectiveDimensions(
+  sizeInfo: PhotoSizeInfo,
+  orientation: 'portrait' | 'landscape' | undefined,
+  scale: number
+): { width: number; height: number } {
+  let width = sizeInfo.widthPx
+  let height = sizeInfo.heightPx
+
+  // For non-square, non-polaroid photos, respect orientation
+  if (!sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && orientation === 'landscape') {
+    // Swap dimensions for landscape
+    width = sizeInfo.heightPx
+    height = sizeInfo.widthPx
+  }
+
+  return {
+    width: Math.round(width * scale),
+    height: Math.round(height * scale),
+  }
+}
+
+/**
  * Render the photo to a canvas at the specified dimensions
  */
 async function renderToCanvas(
@@ -130,77 +154,163 @@ async function renderToCanvas(
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get canvas context')
 
-  const width = Math.round(sizeInfo.widthPx * scale)
-  const height = Math.round(sizeInfo.heightPx * scale)
+  // For Polaroid with full border
+  if (sizeInfo.isPolaroid) {
+    const borderStyle = editState.polaroidBorder || 'bottom'
 
-  canvas.width = width
-  canvas.height = height
+    if (borderStyle === 'full') {
+      // Full white border on all sides
+      // Border proportions: 6% on sides, 6% on top, 20% on bottom (for caption)
+      const borderSide = Math.round(sizeInfo.widthPx * 0.06 * scale)
+      const borderTop = Math.round(sizeInfo.widthPx * 0.06 * scale)
+      const borderBottom = Math.round(sizeInfo.widthPx * 0.20 * scale)
 
-  // For Polaroid, we need special handling
-  if (sizeInfo.isPolaroid && sizeInfo.photoAreaPx && sizeInfo.marginPx) {
-    const photoWidth = Math.round(sizeInfo.photoAreaPx.width * scale)
-    const photoHeight = Math.round(sizeInfo.photoAreaPx.height * scale)
-    const marginHeight = Math.round(sizeInfo.marginPx * scale)
+      const photoWidth = Math.round(sizeInfo.widthPx * scale) - borderSide * 2
+      const photoHeight = Math.round(sizeInfo.widthPx * scale) // Square photo area
 
-    // Fill white background
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, width, height)
+      const totalWidth = photoWidth + borderSide * 2
+      const totalHeight = photoHeight + borderTop + borderBottom
 
-    // Calculate and draw image in photo area
-    const pos = calculateImagePosition(
-      img.naturalWidth,
-      img.naturalHeight,
-      editState.zoom,
-      editState.panX,
-      editState.panY,
-      photoWidth,
-      photoHeight
-    )
+      canvas.width = totalWidth
+      canvas.height = totalHeight
 
-    // Clip to photo area
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, 0, photoWidth, photoHeight)
-    ctx.clip()
+      // Fill white background
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, totalWidth, totalHeight)
 
-    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, pos.dx, pos.dy, pos.dw, pos.dh)
+      // Calculate and draw image in photo area
+      const pos = calculateImagePosition(
+        img.naturalWidth,
+        img.naturalHeight,
+        editState.zoom,
+        editState.panX,
+        editState.panY,
+        photoWidth,
+        photoHeight
+      )
 
-    // Apply filter to photo area only
-    if (editState.filter.name !== 'none') {
-      const photoData = ctx.getImageData(0, 0, photoWidth, photoHeight)
-      const tempCanvas = document.createElement('canvas')
-      tempCanvas.width = photoWidth
-      tempCanvas.height = photoHeight
-      const tempCtx = tempCanvas.getContext('2d')!
-      tempCtx.putImageData(photoData, 0, 0)
-      editState.filter.apply(tempCtx, tempCanvas)
-      ctx.putImageData(tempCtx.getImageData(0, 0, photoWidth, photoHeight), 0, 0)
-    }
+      // Clip to photo area
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(borderSide, borderTop, photoWidth, photoHeight)
+      ctx.clip()
 
-    ctx.restore()
+      ctx.drawImage(
+        img, 0, 0, img.naturalWidth, img.naturalHeight,
+        borderSide + pos.dx, borderTop + pos.dy, pos.dw, pos.dh
+      )
 
-    // Draw caption if present
-    if (editState.caption?.trim() && editState.font && editState.color) {
-      const fontSize = Math.round(48 * scale)
-      const lineHeight = Math.round(56 * scale)
-      const padding = Math.round(30 * scale)
-      const maxTextWidth = width - padding * 2
+      // Apply filter to photo area only
+      if (editState.filter.name !== 'none') {
+        const photoData = ctx.getImageData(borderSide, borderTop, photoWidth, photoHeight)
+        const tempCanvas = document.createElement('canvas')
+        tempCanvas.width = photoWidth
+        tempCanvas.height = photoHeight
+        const tempCtx = tempCanvas.getContext('2d')!
+        tempCtx.putImageData(photoData, 0, 0)
+        editState.filter.apply(tempCtx, tempCanvas)
+        ctx.putImageData(tempCtx.getImageData(0, 0, photoWidth, photoHeight), borderSide, borderTop)
+      }
 
-      ctx.font = `${fontSize}px '${editState.font.family}', cursive`
-      ctx.fillStyle = editState.color.hex
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
+      ctx.restore()
 
-      const lines = wrapText(ctx, editState.caption, maxTextWidth)
-      const totalTextHeight = lines.length * lineHeight
-      const startY = photoHeight + (marginHeight - totalTextHeight) / 2 + lineHeight / 2
+      // Draw caption if present
+      if (editState.caption?.trim() && editState.font && editState.color) {
+        const fontSize = Math.round(42 * scale)
+        const lineHeight = Math.round(50 * scale)
+        const padding = Math.round(20 * scale)
+        const maxTextWidth = totalWidth - padding * 2
 
-      lines.forEach((line, i) => {
-        ctx.fillText(line, width / 2, startY + i * lineHeight)
-      })
+        ctx.font = `${fontSize}px '${editState.font.family}', cursive`
+        ctx.fillStyle = editState.color.hex
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+
+        const lines = wrapText(ctx, editState.caption, maxTextWidth)
+        const totalTextHeight = lines.length * lineHeight
+        const captionAreaStart = borderTop + photoHeight
+        const startY = captionAreaStart + (borderBottom - totalTextHeight) / 2 + lineHeight / 2
+
+        lines.forEach((line, i) => {
+          ctx.fillText(line, totalWidth / 2, startY + i * lineHeight)
+        })
+      }
+    } else {
+      // Original bottom-only border style
+      const width = Math.round(sizeInfo.widthPx * scale)
+      const height = Math.round(sizeInfo.heightPx * scale)
+      const photoWidth = Math.round(sizeInfo.photoAreaPx!.width * scale)
+      const photoHeight = Math.round(sizeInfo.photoAreaPx!.height * scale)
+      const marginHeight = Math.round(sizeInfo.marginPx! * scale)
+
+      canvas.width = width
+      canvas.height = height
+
+      // Fill white background
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
+
+      // Calculate and draw image in photo area
+      const pos = calculateImagePosition(
+        img.naturalWidth,
+        img.naturalHeight,
+        editState.zoom,
+        editState.panX,
+        editState.panY,
+        photoWidth,
+        photoHeight
+      )
+
+      // Clip to photo area
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(0, 0, photoWidth, photoHeight)
+      ctx.clip()
+
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, pos.dx, pos.dy, pos.dw, pos.dh)
+
+      // Apply filter to photo area only
+      if (editState.filter.name !== 'none') {
+        const photoData = ctx.getImageData(0, 0, photoWidth, photoHeight)
+        const tempCanvas = document.createElement('canvas')
+        tempCanvas.width = photoWidth
+        tempCanvas.height = photoHeight
+        const tempCtx = tempCanvas.getContext('2d')!
+        tempCtx.putImageData(photoData, 0, 0)
+        editState.filter.apply(tempCtx, tempCanvas)
+        ctx.putImageData(tempCtx.getImageData(0, 0, photoWidth, photoHeight), 0, 0)
+      }
+
+      ctx.restore()
+
+      // Draw caption if present
+      if (editState.caption?.trim() && editState.font && editState.color) {
+        const fontSize = Math.round(48 * scale)
+        const lineHeight = Math.round(56 * scale)
+        const padding = Math.round(30 * scale)
+        const maxTextWidth = width - padding * 2
+
+        ctx.font = `${fontSize}px '${editState.font.family}', cursive`
+        ctx.fillStyle = editState.color.hex
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+
+        const lines = wrapText(ctx, editState.caption, maxTextWidth)
+        const totalTextHeight = lines.length * lineHeight
+        const startY = photoHeight + (marginHeight - totalTextHeight) / 2 + lineHeight / 2
+
+        lines.forEach((line, i) => {
+          ctx.fillText(line, width / 2, startY + i * lineHeight)
+        })
+      }
     }
   } else {
     // Regular photo (not Polaroid)
+    const { width, height } = getEffectiveDimensions(sizeInfo, editState.orientation, scale)
+
+    canvas.width = width
+    canvas.height = height
+
     const pos = calculateImagePosition(
       img.naturalWidth,
       img.naturalHeight,
@@ -260,7 +370,13 @@ export async function renderPreview(
   const img = await loadImage(imageSrc)
   const canvas = document.createElement('canvas')
 
-  const scale = maxWidth / sizeInfo.widthPx
+  // For landscape orientation, use height as reference for scale
+  let baseWidth = sizeInfo.widthPx
+  if (!sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape') {
+    baseWidth = sizeInfo.heightPx
+  }
+
+  const scale = maxWidth / baseWidth
   await renderToCanvas(canvas, img, editState, sizeInfo, scale)
 
   return canvas.toDataURL('image/jpeg', 0.85)
