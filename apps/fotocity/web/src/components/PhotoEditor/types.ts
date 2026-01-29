@@ -128,57 +128,6 @@ export const FILTERS: FilterOption[] = [
       ctx.putImageData(imageData, 0, 0)
     },
   },
-  {
-    name: 'vivid',
-    displayName: 'Vívido',
-    css: 'saturate(150%) contrast(110%)',
-    apply: (ctx, canvas) => {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const data = imageData.data
-      for (let i = 0; i < data.length; i += 4) {
-        // Increase saturation
-        const r = data[i], g = data[i + 1], b = data[i + 2]
-        const gray = r * 0.299 + g * 0.587 + b * 0.114
-        const sat = 1.5
-        data[i] = Math.min(255, Math.max(0, gray + (r - gray) * sat))
-        data[i + 1] = Math.min(255, Math.max(0, gray + (g - gray) * sat))
-        data[i + 2] = Math.min(255, Math.max(0, gray + (b - gray) * sat))
-      }
-      ctx.putImageData(imageData, 0, 0)
-    },
-  },
-  {
-    name: 'cool',
-    displayName: 'Frio',
-    css: 'saturate(90%) hue-rotate(10deg)',
-    apply: (ctx, canvas) => {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const data = imageData.data
-      for (let i = 0; i < data.length; i += 4) {
-        // Add blue tones
-        data[i] = Math.max(0, data[i] * 0.9)
-        data[i + 1] = data[i + 1]
-        data[i + 2] = Math.min(255, data[i + 2] * 1.1 + 10)
-      }
-      ctx.putImageData(imageData, 0, 0)
-    },
-  },
-  {
-    name: 'warm',
-    displayName: 'Quente',
-    css: 'saturate(110%) sepia(20%)',
-    apply: (ctx, canvas) => {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const data = imageData.data
-      for (let i = 0; i < data.length; i += 4) {
-        // Add warm tones
-        data[i] = Math.min(255, data[i] * 1.1 + 10)
-        data[i + 1] = Math.min(255, data[i + 1] * 1.02)
-        data[i + 2] = Math.max(0, data[i + 2] * 0.9)
-      }
-      ctx.putImageData(imageData, 0, 0)
-    },
-  },
 ]
 
 // Available handwriting fonts from Google Fonts (for Polaroid)
