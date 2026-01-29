@@ -321,10 +321,12 @@ export default function Upload() {
           {previews.map((preview, index) => {
             const editState = photoEdits.get(index)
             const isEdited = hasSelectedSize && editState
+            // Use edited orientation if available, otherwise fall back to sizeInfo
+            const photoOrientation = editState?.orientation || sizeInfo?.orientation || 'portrait'
             const itemClass = isPolaroidMode
               ? 'preview-item polaroid'
               : sizeInfo
-              ? `preview-item preview-item-${sizeInfo.orientation}`
+              ? `preview-item preview-item-${photoOrientation}`
               : 'preview-item'
 
             return (
