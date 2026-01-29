@@ -15,6 +15,8 @@ export interface PhotoEditState {
   panY: number
   // Filter applied
   filter: FilterOption
+  // Number of copies of this photo
+  copies: number
   // Orientation for rectangular photos
   orientation?: PhotoOrientation
   // Polaroid border style
@@ -60,6 +62,7 @@ export function getDefaultEditState(isPolaroid: boolean, isRectangular: boolean 
     panX: 0,
     panY: 0,
     filter: FILTERS[0],
+    copies: 1,
     orientation: isRectangular ? 'portrait' : undefined,
     polaroidBorder: isPolaroid ? 'bottom' : undefined,
     caption: isPolaroid ? '' : undefined,

@@ -1070,6 +1070,85 @@ body {
   cursor: not-allowed;
 }
 
+/* Copies control in editor */
+.copies-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.copies-btn {
+  width: 36px;
+  height: 36px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.copies-btn:hover:not(:disabled) {
+  border-color: #1e88e5;
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.copies-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.copies-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1565c0;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Copies badge on preview items */
+.copies-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: #1e88e5;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 5;
+}
+
+.copies-badge i {
+  font-size: 10px;
+}
+
+.preview-item.polaroid .copies-badge {
+  bottom: auto;
+  top: 8px;
+  left: 8px;
+}
+
+/* Limits info in image count */
+.limits-info {
+  color: #666;
+  font-weight: normal;
+}
+
+.image-count.warn .limits-info {
+  color: #d32f2f;
+}
+
 /* Photo edit hint message */
 .photo-edit-hint {
   background: #e3f2fd;

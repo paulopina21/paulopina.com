@@ -250,6 +250,29 @@ export default function PhotoEditor({
           </div>
 
           <div className="photo-editor-controls">
+            {/* Copies control */}
+            <div className="control-section">
+              <label>Quantidade de Cópias</label>
+              <div className="copies-control">
+                <button
+                  type="button"
+                  className="copies-btn"
+                  onClick={() => handleStateChange({ copies: Math.max(1, (state.copies || 1) - 1) })}
+                  disabled={(state.copies || 1) <= 1}
+                >
+                  <i className="fas fa-minus"></i>
+                </button>
+                <span className="copies-value">{state.copies || 1}</span>
+                <button
+                  type="button"
+                  className="copies-btn"
+                  onClick={() => handleStateChange({ copies: Math.min(99, (state.copies || 1) + 1) })}
+                >
+                  <i className="fas fa-plus"></i>
+                </button>
+              </div>
+            </div>
+
             {/* Zoom control */}
             <div className="control-section">
               <label>Zoom: {Math.round(state.zoom * 100)}%</label>

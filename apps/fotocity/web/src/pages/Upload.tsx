@@ -55,6 +55,17 @@ export default function Upload() {
   const isPolaroidMode = sizeInfo?.isPolaroid ?? false
   const hasSelectedSize = !!sizeInfo
 
+  // Calculate total photos considering copies
+  const getTotalPhotos = () => {
+    let total = 0
+    for (let i = 0; i < files.length; i++) {
+      const editState = photoEdits.get(i)
+      total += editState?.copies || 1
+    }
+    return total
+  }
+  const totalPhotos = getTotalPhotos()
+
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type })
     setTimeout(() => setMessage(null), 3500)
@@ -150,8 +161,8 @@ export default function Upload() {
   }
 
   const canProceed = files.length > 0 &&
-    (minImages === null || files.length >= minImages) &&
-    (maxImages === null || files.length <= maxImages)
+    (minImages === null || totalPhotos >= minImages) &&
+    (maxImages === null || totalPhotos <= maxImages)
 
   const canSubmit = nome.trim().length > 1 &&
     /.+@.+\..+/.test(email.trim()) &&
@@ -172,30 +183,42 @@ export default function Upload() {
     const productId = getProductId()
 
     try {
-      // Upload each file
+      // Upload each file (considering copies)
+      let uploadedCount = 0
       for (let i = 0; i < files.length; i++) {
+        const editState = photoEdits.get(i)
+        const copies = editState?.copies || 1
+
         let fileToUpload: File | Blob = files[i]
 
         // If this file has edits, render the final image at print resolution
-        if (photoEdits.has(i)) {
-          const editState = photoEdits.get(i)!
+        if (editState) {
           const photoBlob = await renderPhoto(previews[i], editState, sizeInfo)
           fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
         }
 
-        const formData = new FormData()
-        formData.append('id_cliente', clientId)
-        formData.append('id_produto', productId)
-        formData.append('img_file', fileToUpload)
-        formData.append('action', 'add_image')
+        // Upload one file per copy
+        for (let c = 0; c < copies; c++) {
+          const formData = new FormData()
+          formData.append('id_cliente', clientId)
+          formData.append('id_produto', productId)
+          formData.append('img_file', fileToUpload)
+          formData.append('action', 'add_image')
+          // Add copy number to distinguish files if needed
+          if (copies > 1) {
+            formData.append('copy_number', String(c + 1))
+            formData.append('total_copies', String(copies))
+          }
 
-        await fetch(`${API_BASE}/api/photos`, {
-          method: 'POST',
-          body: formData,
-        })
+          await fetch(`${API_BASE}/api/photos`, {
+            method: 'POST',
+            body: formData,
+          })
+          uploadedCount++
+        }
       }
 
-      // Send webhook
+      // Send webhook with total photos count
       try {
         await fetch(WEBHOOK_URL, {
           method: 'POST',
@@ -205,7 +228,8 @@ export default function Upload() {
             nome: nome.trim(),
             email: email.trim(),
             telefone: whats.trim(),
-            numero_fotos: files.length,
+            numero_fotos: uploadedCount,
+            imagens_unicas: files.length,
             apiBase: API_BASE,
           }),
         })
@@ -295,11 +319,21 @@ export default function Upload() {
           <div className={`message ${message.type}`}>{message.text}</div>
         )}
 
-        <div className={`image-count ${minImages && files.length < minImages ? 'warn' : ''}`}>
-          Imagens adicionadas: {files.length}
-          {minImages !== null && maxImages !== null && ` (minimo ${minImages} / maximo ${maxImages})`}
-          {minImages !== null && maxImages === null && ` (minimo ${minImages})`}
-          {minImages === null && maxImages !== null && ` (maximo ${maxImages})`}
+        <div className={`image-count ${(minImages && totalPhotos < minImages) || (maxImages && totalPhotos > maxImages) ? 'warn' : ''}`}>
+          {totalPhotos === files.length ? (
+            <>Fotos: {totalPhotos}</>
+          ) : (
+            <>{files.length} imagens = <strong>{totalPhotos} fotos</strong> (com cópias)</>
+          )}
+          {minImages !== null && maxImages !== null && (
+            <span className="limits-info"> • Limite: {minImages} a {maxImages} fotos</span>
+          )}
+          {minImages !== null && maxImages === null && (
+            <span className="limits-info"> • Mínimo: {minImages} fotos</span>
+          )}
+          {minImages === null && maxImages !== null && (
+            <span className="limits-info"> • Máximo: {maxImages} fotos</span>
+          )}
         </div>
 
         {/* Edit hint when size is selected */}
@@ -356,6 +390,13 @@ export default function Upload() {
                 {isEdited && (
                   <div className="edit-check">
                     <i className="fas fa-check"></i>
+                  </div>
+                )}
+                {/* Copies badge */}
+                {(editState?.copies || 1) > 1 && (
+                  <div className="copies-badge">
+                    <i className="fas fa-copy"></i>
+                    <span>{editState?.copies}</span>
                   </div>
                 )}
                 <div
