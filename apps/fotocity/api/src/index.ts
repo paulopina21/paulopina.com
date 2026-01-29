@@ -6,16 +6,20 @@ export interface Env {
   AUTH_PASS: string;
 }
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+function getCorsHeaders(request: Request) {
+  const origin = request.headers.get('Origin') || 'https://fotocity.paulopina.com';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
 
-function jsonResponse(data: unknown, status = 200) {
+function jsonResponse(request: Request, data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    headers: { 'Content-Type': 'application/json', ...getCorsHeaders(request) },
   });
 }
 
@@ -46,6 +50,11 @@ function getSessionIdFromRequest(request: Request): string | null {
   if (!cookie) return null;
   const match = cookie.match(/session=([^;]+)/);
   return match ? match[1] : null;
+}
+
+// Cookie configuration for cross-subdomain auth
+function getSessionCookie(sessionId: string, maxAge: number): string {
+  return `session=${sessionId}; Path=/; Domain=.paulopina.com; HttpOnly; Secure; SameSite=None; Max-Age=${maxAge}`;
 }
 
 // Photo storage functions (R2 when available, otherwise returns instructions)
@@ -154,14 +163,14 @@ async function listClients(env: Env): Promise<{ nome: string; data: number }[]> 
     .sort((a, b) => b.data - a.data);
 }
 
-async function getPhotoFile(env: Env, key: string): Promise<Response> {
+async function getPhotoFile(env: Env, request: Request, key: string): Promise<Response> {
   if (!env.PHOTOS) {
-    return jsonResponse({ status: 'ERROR', message: 'R2 not configured' }, 500);
+    return jsonResponse(request, { status: 'ERROR', message: 'R2 not configured' }, 500);
   }
 
   const object = await env.PHOTOS.get(key);
   if (!object) {
-    return jsonResponse({ status: 'ERROR', message: 'File not found' }, 404);
+    return jsonResponse(request, { status: 'ERROR', message: 'File not found' }, 404);
   }
 
   const headers = new Headers();
@@ -179,12 +188,12 @@ export default {
 
     // CORS preflight
     if (method === 'OPTIONS') {
-      return new Response(null, { headers: CORS_HEADERS });
+      return new Response(null, { headers: getCorsHeaders(request) });
     }
 
     // Health check
     if (path === '/' || path === '/health') {
-      return jsonResponse({ status: 'ok', app: env.APP_NAME, r2_enabled: !!env.PHOTOS });
+      return jsonResponse(request, { status: 'ok', app: env.APP_NAME, r2_enabled: !!env.PHOTOS });
     }
 
     // Auth endpoints
@@ -197,13 +206,13 @@ export default {
         return new Response(JSON.stringify({ status: 'ok' }), {
           headers: {
             'Content-Type': 'application/json',
-            'Set-Cookie': `session=${sessionId}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400`,
-            ...CORS_HEADERS,
+            'Set-Cookie': getSessionCookie(sessionId, 86400),
+            ...getCorsHeaders(request),
           },
         });
       }
 
-      return jsonResponse({ status: 'error', message: 'Credenciais invalidas' }, 401);
+      return jsonResponse(request, { status: 'error', message: 'Credenciais invalidas' }, 401);
     }
 
     if (path === '/api/logout') {
@@ -214,8 +223,8 @@ export default {
       return new Response(JSON.stringify({ status: 'ok' }), {
         headers: {
           'Content-Type': 'application/json',
-          'Set-Cookie': `session=; Path=/; HttpOnly; Max-Age=0`,
-          ...CORS_HEADERS,
+          'Set-Cookie': getSessionCookie('', 0),
+          ...getCorsHeaders(request),
         },
       });
     }
@@ -223,7 +232,7 @@ export default {
     if (path === '/api/session') {
       const sessionId = getSessionIdFromRequest(request);
       const valid = await verifySession(env, sessionId);
-      return jsonResponse({ loggedIn: valid });
+      return jsonResponse(request, { loggedIn: valid });
     }
 
     // Photo API endpoints
@@ -236,30 +245,30 @@ export default {
       if (action === 'add_image') {
         const file = formData.get('img_file') as File;
         if (!clientId || !productId || !file) {
-          return jsonResponse({ status: 'ERROR', message: 'Missing parameters' }, 400);
+          return jsonResponse(request, { status: 'ERROR', message: 'Missing parameters' }, 400);
         }
         const result = await uploadPhoto(env, clientId, productId, file);
-        return jsonResponse(result);
+        return jsonResponse(request, result);
       }
 
       if (action === 'delete_image') {
         const filename = formData.get('filename') as string;
         if (!clientId || !productId || !filename) {
-          return jsonResponse({ status: 'ERROR', message: 'Missing parameters' }, 400);
+          return jsonResponse(request, { status: 'ERROR', message: 'Missing parameters' }, 400);
         }
         const result = await deletePhoto(env, clientId, productId, filename);
-        return jsonResponse(result);
+        return jsonResponse(request, result);
       }
 
       if (action === 'delete_all_images') {
         if (!clientId || !productId) {
-          return jsonResponse({ status: 'ERROR', message: 'Missing parameters' }, 400);
+          return jsonResponse(request, { status: 'ERROR', message: 'Missing parameters' }, 400);
         }
         const result = await deleteAllPhotos(env, clientId, productId);
-        return jsonResponse(result);
+        return jsonResponse(request, result);
       }
 
-      return jsonResponse({ status: 'ERROR', message: 'Invalid action' }, 400);
+      return jsonResponse(request, { status: 'ERROR', message: 'Invalid action' }, 400);
     }
 
     if (path === '/api/photos' && method === 'GET') {
@@ -267,17 +276,17 @@ export default {
       const productId = url.searchParams.get('id_produto');
 
       if (!clientId || !productId) {
-        return jsonResponse({ status: 'ERROR', message: 'Missing parameters' }, 400);
+        return jsonResponse(request, { status: 'ERROR', message: 'Missing parameters' }, 400);
       }
 
       const result = await listPhotos(env, clientId, productId);
-      return jsonResponse(result);
+      return jsonResponse(request, result);
     }
 
     // Serve photo file
     if (path.startsWith('/api/photos/') && method === 'GET') {
       const key = path.replace('/api/photos/', '');
-      return getPhotoFile(env, key);
+      return getPhotoFile(env, request, key);
     }
 
     // Admin API (protected)
@@ -286,15 +295,15 @@ export default {
       const valid = await verifySession(env, sessionId);
 
       if (!valid) {
-        return jsonResponse({ status: 'error', message: 'Unauthorized' }, 401);
+        return jsonResponse(request, { status: 'error', message: 'Unauthorized' }, 401);
       }
 
       if (path === '/api/admin/clients') {
         const clients = await listClients(env);
-        return jsonResponse({ status: 'ok', clients });
+        return jsonResponse(request, { status: 'ok', clients });
       }
     }
 
-    return jsonResponse({ status: 'ERROR', message: 'Not found' }, 404);
+    return jsonResponse(request, { status: 'ERROR', message: 'Not found' }, 404);
   },
 };
