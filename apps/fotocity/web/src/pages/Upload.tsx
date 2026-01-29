@@ -1,4 +1,10 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import {
+  PolaroidEditor,
+  PolaroidEditState,
+  renderPolaroid,
+  loadFonts,
+} from '../components/PolaroidEditor'
 
 const PHOTO_SIZES = [
   '8x8', 'Polaroid 8x10', '9x12', '10x10', '10x15', '13x18',
@@ -40,12 +46,27 @@ export default function Upload() {
   const [email, setEmail] = useState('')
   const [whats, setWhats] = useState('')
 
+  // Polaroid editor state
+  const [polaroidEdits, setPolaroidEdits] = useState<Map<number, PolaroidEditState>>(new Map())
+  const [polaroidPreviews, setPolaroidPreviews] = useState<Map<number, string>>(new Map())
+  const [editingIndex, setEditingIndex] = useState<number>(-1)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const params = new URLSearchParams(window.location.search)
   const minImages = params.get('min') ? parseInt(params.get('min')!) : null
   const maxImages = params.get('max') ? parseInt(params.get('max')!) : null
   const defaultSize = params.get('tamanho') || ''
+
+  // Check if Polaroid mode is active
+  const isPolaroidMode = (photoSize || defaultSize) === 'Polaroid 8x10'
+
+  // Load fonts when Polaroid mode is activated
+  useEffect(() => {
+    if (isPolaroidMode) {
+      loadFonts()
+    }
+  }, [isPolaroidMode])
 
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type })
@@ -80,13 +101,57 @@ export default function Upload() {
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
     setPreviews(prev => prev.filter((_, i) => i !== index))
+    // Also remove polaroid edits for this index and shift others
+    setPolaroidEdits(prev => {
+      const newEdits = new Map<number, PolaroidEditState>()
+      prev.forEach((value, key) => {
+        if (key < index) {
+          newEdits.set(key, value)
+        } else if (key > index) {
+          newEdits.set(key - 1, value)
+        }
+      })
+      return newEdits
+    })
+    setPolaroidPreviews(prev => {
+      const newPreviews = new Map<number, string>()
+      prev.forEach((value, key) => {
+        if (key < index) {
+          newPreviews.set(key, value)
+        } else if (key > index) {
+          newPreviews.set(key - 1, value)
+        }
+      })
+      return newPreviews
+    })
   }
 
   const removeAll = () => {
     setFiles([])
     setPreviews([])
+    setPolaroidEdits(new Map())
+    setPolaroidPreviews(new Map())
     setShowForm(false)
     showMessage('Todas as imagens foram removidas.', 'success')
+  }
+
+  // Handle opening the Polaroid editor
+  const handleEditPolaroid = (index: number) => {
+    if (isPolaroidMode) {
+      setEditingIndex(index)
+    }
+  }
+
+  // Handle saving Polaroid edits
+  const handleSavePolaroid = (state: PolaroidEditState, previewDataUrl: string) => {
+    setPolaroidEdits(prev => new Map(prev).set(editingIndex, state))
+    setPolaroidPreviews(prev => new Map(prev).set(editingIndex, previewDataUrl))
+    setEditingIndex(-1)
+  }
+
+  // Handle canceling Polaroid edit
+  const handleCancelPolaroid = () => {
+    setEditingIndex(-1)
   }
 
   const canProceed = files.length > 0 &&
@@ -113,11 +178,20 @@ export default function Upload() {
 
     try {
       // Upload each file
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        let fileToUpload: File | Blob = files[i]
+
+        // If in Polaroid mode and this file has edits, render the final image
+        if (isPolaroidMode && polaroidEdits.has(i)) {
+          const editState = polaroidEdits.get(i)!
+          const polaroidBlob = await renderPolaroid(previews[i], editState)
+          fileToUpload = new File([polaroidBlob], `polaroid_${i}.jpg`, { type: 'image/jpeg' })
+        }
+
         const formData = new FormData()
         formData.append('id_cliente', clientId)
         formData.append('id_produto', productId)
-        formData.append('img_file', file)
+        formData.append('img_file', fileToUpload)
         formData.append('action', 'add_image')
 
         await fetch(`${API_BASE}/api/photos`, {
@@ -147,6 +221,8 @@ export default function Upload() {
       setSuccess(true)
       setFiles([])
       setPreviews([])
+      setPolaroidEdits(new Map())
+      setPolaroidPreviews(new Map())
     } catch (err) {
       showMessage('Erro ao enviar fotos. Tente novamente.', 'error')
     } finally {
@@ -233,12 +309,41 @@ export default function Upload() {
 
         <div className="preview-grid">
           {previews.map((preview, index) => (
-            <div key={index} className="preview-item">
-              <img src={preview} alt={`Preview ${index + 1}`} />
-              <div className="delete" onClick={() => removeFile(index)}>&times;</div>
+            <div
+              key={index}
+              className={`preview-item ${isPolaroidMode ? 'polaroid' : ''}`}
+              onClick={() => handleEditPolaroid(index)}
+              style={{ cursor: isPolaroidMode ? 'pointer' : 'default' }}
+            >
+              <img
+                src={polaroidPreviews.get(index) || preview}
+                alt={`Preview ${index + 1}`}
+              />
+              {isPolaroidMode && polaroidEdits.has(index) && (
+                <span className="edit-badge">Editado</span>
+              )}
+              <div
+                className="delete"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  removeFile(index)
+                }}
+              >
+                &times;
+              </div>
             </div>
           ))}
         </div>
+
+        {/* Polaroid Editor Modal */}
+        {editingIndex >= 0 && isPolaroidMode && (
+          <PolaroidEditor
+            preview={previews[editingIndex]}
+            editState={polaroidEdits.get(editingIndex) || null}
+            onSave={handleSavePolaroid}
+            onCancel={handleCancelPolaroid}
+          />
+        )}
 
         {!showForm && (
           <div className="btn-foot">
