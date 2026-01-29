@@ -163,6 +163,52 @@ async function listClients(env: Env): Promise<{ nome: string; data: number }[]> 
     .sort((a, b) => b.data - a.data);
 }
 
+async function listClientProducts(env: Env, clientId: string): Promise<{ produto: string; data: number; qtd: number }[]> {
+  if (!env.PHOTOS) {
+    return [];
+  }
+
+  const prefix = `${clientId}/`;
+  const listed = await env.PHOTOS.list({ prefix });
+  const productMap = new Map<string, { data: number; qtd: number }>();
+
+  for (const obj of listed.objects) {
+    const parts = obj.key.split('/');
+    if (parts.length >= 2) {
+      const productId = parts[1];
+      const uploadTime = obj.uploaded.getTime();
+      const existing = productMap.get(productId);
+      if (existing) {
+        existing.qtd++;
+        if (uploadTime > existing.data) {
+          existing.data = uploadTime;
+        }
+      } else {
+        productMap.set(productId, { data: uploadTime, qtd: 1 });
+      }
+    }
+  }
+
+  return Array.from(productMap.entries())
+    .map(([produto, info]) => ({ produto, data: info.data, qtd: info.qtd }))
+    .sort((a, b) => b.data - a.data);
+}
+
+async function listProductPhotos(env: Env, clientId: string, productId: string): Promise<{ key: string; url: string; data: number }[]> {
+  if (!env.PHOTOS) {
+    return [];
+  }
+
+  const prefix = `${clientId}/${productId}/`;
+  const listed = await env.PHOTOS.list({ prefix });
+
+  return listed.objects.map((obj) => ({
+    key: obj.key,
+    url: `/api/photos/${obj.key}`,
+    data: obj.uploaded.getTime(),
+  })).sort((a, b) => b.data - a.data);
+}
+
 async function getPhotoFile(env: Env, request: Request, key: string): Promise<Response> {
   if (!env.PHOTOS) {
     return jsonResponse(request, { status: 'ERROR', message: 'R2 not configured' }, 500);
@@ -301,6 +347,24 @@ export default {
       if (path === '/api/admin/clients') {
         const clients = await listClients(env);
         return jsonResponse(request, { status: 'ok', clients });
+      }
+
+      // List products/uploads for a client
+      if (path.startsWith('/api/admin/clients/') && path.endsWith('/products')) {
+        const clientId = decodeURIComponent(path.replace('/api/admin/clients/', '').replace('/products', ''));
+        const products = await listClientProducts(env, clientId);
+        return jsonResponse(request, { status: 'ok', products });
+      }
+
+      // List photos for a specific product
+      if (path.includes('/products/') && path.endsWith('/photos')) {
+        const match = path.match(/\/api\/admin\/clients\/(.+)\/products\/(.+)\/photos/);
+        if (match) {
+          const clientId = decodeURIComponent(match[1]);
+          const productId = decodeURIComponent(match[2]);
+          const photos = await listProductPhotos(env, clientId, productId);
+          return jsonResponse(request, { status: 'ok', photos });
+        }
       }
     }
 

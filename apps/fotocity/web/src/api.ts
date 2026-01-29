@@ -56,3 +56,23 @@ export async function getClients(): Promise<{ nome: string; data: number }[]> {
     return [];
   }
 }
+
+export async function getClientProducts(clientId: string): Promise<{ produto: string; data: number; qtd: number }[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/clients/${encodeURIComponent(clientId)}/products`, { credentials: 'include' });
+    const data = await res.json();
+    return data.products || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getProductPhotos(clientId: string, productId: string): Promise<{ key: string; url: string; data: number }[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/clients/${encodeURIComponent(clientId)}/products/${encodeURIComponent(productId)}/photos`, { credentials: 'include' });
+    const data = await res.json();
+    return data.photos || [];
+  } catch {
+    return [];
+  }
+}
