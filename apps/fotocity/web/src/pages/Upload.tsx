@@ -321,37 +321,50 @@ export default function Upload() {
         )}
 
         <div className="preview-grid">
-          {previews.map((preview, index) => (
-            <div
-              key={index}
-              className={`preview-item ${isPolaroidMode ? 'polaroid' : ''}`}
-              onClick={() => handleEditPolaroid(index)}
-              style={{ cursor: isPolaroidMode ? 'pointer' : 'default' }}
-            >
-              <img
-                src={polaroidPreviews.get(index) || preview}
-                alt={`Preview ${index + 1}`}
-              />
-              {isPolaroidMode && !polaroidEdits.has(index) && (
-                <div className="edit-overlay">
-                  <i className="fas fa-edit"></i>
-                  <span>Editar</span>
-                </div>
-              )}
-              {isPolaroidMode && polaroidEdits.has(index) && (
-                <span className="edit-badge edited">Editado</span>
-              )}
+          {previews.map((preview, index) => {
+            const editState = polaroidEdits.get(index)
+            const isEdited = isPolaroidMode && editState
+
+            return (
               <div
-                className="delete"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeFile(index)
-                }}
+                key={index}
+                className={`preview-item ${isPolaroidMode ? 'polaroid' : ''}`}
+                onClick={() => handleEditPolaroid(index)}
+                style={{ cursor: isPolaroidMode ? 'pointer' : 'default' }}
               >
-                &times;
+                <img
+                  src={polaroidPreviews.get(index) || preview}
+                  alt={`Preview ${index + 1}`}
+                />
+                {isPolaroidMode && (
+                  <div className={`polaroid-caption ${!editState?.caption ? 'empty' : ''}`}
+                       style={editState?.font ? { fontFamily: `'${editState.font.family}', cursive` } : undefined}>
+                    {editState?.caption || 'Sem legenda'}
+                  </div>
+                )}
+                {isPolaroidMode && !isEdited && (
+                  <div className="edit-overlay">
+                    <i className="fas fa-edit"></i>
+                    <span>Editar</span>
+                  </div>
+                )}
+                {isEdited && (
+                  <div className="edit-check">
+                    <i className="fas fa-check"></i>
+                  </div>
+                )}
+                <div
+                  className="delete"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeFile(index)
+                  }}
+                >
+                  &times;
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Polaroid Editor Modal */}
