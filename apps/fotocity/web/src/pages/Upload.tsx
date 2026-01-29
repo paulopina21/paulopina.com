@@ -1,11 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import {
-  PolaroidEditor,
-  PolaroidEditState,
-  renderPolaroid,
-  loadFonts,
-} from '../components/PolaroidEditor'
-import { PHOTO_SIZES, parsePhotoSize } from '../utils/photoSizes'
+import { PhotoEditor, PhotoEditState, renderPhoto } from '../components/PhotoEditor'
+import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
 
 // API base - usa a API do Worker (R2) em produção ou proxy local em dev
 const API_BASE = import.meta.env.VITE_API_URL || ''
@@ -42,9 +37,9 @@ export default function Upload() {
   const [email, setEmail] = useState('')
   const [whats, setWhats] = useState('')
 
-  // Polaroid editor state
-  const [polaroidEdits, setPolaroidEdits] = useState<Map<number, PolaroidEditState>>(new Map())
-  const [polaroidPreviews, setPolaroidPreviews] = useState<Map<number, string>>(new Map())
+  // Photo editor state
+  const [photoEdits, setPhotoEdits] = useState<Map<number, PhotoEditState>>(new Map())
+  const [photoPreviews, setPhotoPreviews] = useState<Map<number, string>>(new Map())
   const [editingIndex, setEditingIndex] = useState<number>(-1)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -56,15 +51,9 @@ export default function Upload() {
 
   // Get current selected size info
   const currentSize = photoSize || defaultSize
-  const sizeInfo = currentSize ? parsePhotoSize(currentSize) : null
+  const sizeInfo: PhotoSizeInfo | null = currentSize ? parsePhotoSize(currentSize) : null
   const isPolaroidMode = sizeInfo?.isPolaroid ?? false
-
-  // Load fonts when Polaroid mode is activated
-  useEffect(() => {
-    if (isPolaroidMode) {
-      loadFonts()
-    }
-  }, [isPolaroidMode])
+  const hasSelectedSize = !!sizeInfo
 
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type })
@@ -99,9 +88,9 @@ export default function Upload() {
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
     setPreviews(prev => prev.filter((_, i) => i !== index))
-    // Also remove polaroid edits for this index and shift others
-    setPolaroidEdits(prev => {
-      const newEdits = new Map<number, PolaroidEditState>()
+    // Also remove edits for this index and shift others
+    setPhotoEdits(prev => {
+      const newEdits = new Map<number, PhotoEditState>()
       prev.forEach((value, key) => {
         if (key < index) {
           newEdits.set(key, value)
@@ -111,7 +100,7 @@ export default function Upload() {
       })
       return newEdits
     })
-    setPolaroidPreviews(prev => {
+    setPhotoPreviews(prev => {
       const newPreviews = new Map<number, string>()
       prev.forEach((value, key) => {
         if (key < index) {
@@ -127,28 +116,36 @@ export default function Upload() {
   const removeAll = () => {
     setFiles([])
     setPreviews([])
-    setPolaroidEdits(new Map())
-    setPolaroidPreviews(new Map())
+    setPhotoEdits(new Map())
+    setPhotoPreviews(new Map())
     setShowForm(false)
     showMessage('Todas as imagens foram removidas.', 'success')
   }
 
-  // Handle opening the Polaroid editor
-  const handleEditPolaroid = (index: number) => {
-    if (isPolaroidMode) {
+  // Clear edits when size changes
+  useEffect(() => {
+    if (photoEdits.size > 0 || photoPreviews.size > 0) {
+      setPhotoEdits(new Map())
+      setPhotoPreviews(new Map())
+    }
+  }, [currentSize])
+
+  // Handle opening the photo editor
+  const handleEditPhoto = (index: number) => {
+    if (hasSelectedSize) {
       setEditingIndex(index)
     }
   }
 
-  // Handle saving Polaroid edits
-  const handleSavePolaroid = (state: PolaroidEditState, previewDataUrl: string) => {
-    setPolaroidEdits(prev => new Map(prev).set(editingIndex, state))
-    setPolaroidPreviews(prev => new Map(prev).set(editingIndex, previewDataUrl))
+  // Handle saving photo edits
+  const handleSavePhoto = (state: PhotoEditState, previewDataUrl: string) => {
+    setPhotoEdits(prev => new Map(prev).set(editingIndex, state))
+    setPhotoPreviews(prev => new Map(prev).set(editingIndex, previewDataUrl))
     setEditingIndex(-1)
   }
 
-  // Handle canceling Polaroid edit
-  const handleCancelPolaroid = () => {
+  // Handle canceling photo edit
+  const handleCancelEdit = () => {
     setEditingIndex(-1)
   }
 
@@ -167,7 +164,7 @@ export default function Upload() {
   }
 
   const handleSubmit = async () => {
-    if (!canSubmit || uploading) return
+    if (!canSubmit || uploading || !sizeInfo) return
 
     setUploading(true)
 
@@ -179,11 +176,11 @@ export default function Upload() {
       for (let i = 0; i < files.length; i++) {
         let fileToUpload: File | Blob = files[i]
 
-        // If in Polaroid mode and this file has edits, render the final image
-        if (isPolaroidMode && polaroidEdits.has(i)) {
-          const editState = polaroidEdits.get(i)!
-          const polaroidBlob = await renderPolaroid(previews[i], editState)
-          fileToUpload = new File([polaroidBlob], `polaroid_${i}.jpg`, { type: 'image/jpeg' })
+        // If this file has edits, render the final image at print resolution
+        if (photoEdits.has(i)) {
+          const editState = photoEdits.get(i)!
+          const photoBlob = await renderPhoto(previews[i], editState, sizeInfo)
+          fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
         }
 
         const formData = new FormData()
@@ -219,8 +216,8 @@ export default function Upload() {
       setSuccess(true)
       setFiles([])
       setPreviews([])
-      setPolaroidEdits(new Map())
-      setPolaroidPreviews(new Map())
+      setPhotoEdits(new Map())
+      setPhotoPreviews(new Map())
     } catch (err) {
       showMessage('Erro ao enviar fotos. Tente novamente.', 'error')
     } finally {
@@ -305,14 +302,16 @@ export default function Upload() {
           {minImages === null && maxImages !== null && ` (maximo ${maxImages})`}
         </div>
 
-        {/* Polaroid mode hint */}
-        {isPolaroidMode && files.length > 0 && (
-          <div className="polaroid-hint">
+        {/* Edit hint when size is selected */}
+        {hasSelectedSize && files.length > 0 && (
+          <div className={`photo-edit-hint ${isPolaroidMode ? 'polaroid' : ''}`}>
             <i className="fas fa-info-circle"></i>
             <span>
-              Clique em cada foto para posicionar e adicionar legenda.
-              {polaroidEdits.size > 0 && (
-                <strong> ({polaroidEdits.size}/{files.length} editadas)</strong>
+              {isPolaroidMode
+                ? 'Clique em cada foto para posicionar, adicionar filtros e legenda.'
+                : 'Clique em cada foto para posicionar e adicionar filtros.'}
+              {photoEdits.size > 0 && (
+                <strong> ({photoEdits.size}/{files.length} editadas)</strong>
               )}
             </span>
           </div>
@@ -320,8 +319,8 @@ export default function Upload() {
 
         <div className={`preview-grid ${sizeInfo ? `preview-grid-${sizeInfo.isPolaroid ? 'polaroid' : sizeInfo.orientation}` : ''}`}>
           {previews.map((preview, index) => {
-            const editState = polaroidEdits.get(index)
-            const isEdited = isPolaroidMode && editState
+            const editState = photoEdits.get(index)
+            const isEdited = hasSelectedSize && editState
             const itemClass = isPolaroidMode
               ? 'preview-item polaroid'
               : sizeInfo
@@ -331,13 +330,14 @@ export default function Upload() {
             return (
               <div
                 key={index}
-                className={itemClass}
-                onClick={() => handleEditPolaroid(index)}
-                style={{ cursor: isPolaroidMode ? 'pointer' : 'default' }}
+                className={`${itemClass} ${hasSelectedSize ? 'editable' : ''}`}
+                onClick={() => handleEditPhoto(index)}
+                style={{ cursor: hasSelectedSize ? 'pointer' : 'default' }}
               >
                 <img
-                  src={polaroidPreviews.get(index) || preview}
+                  src={photoPreviews.get(index) || preview}
                   alt={`Preview ${index + 1}`}
+                  style={editState?.filter && !photoPreviews.has(index) ? { filter: editState.filter.css } : undefined}
                 />
                 {isPolaroidMode && (
                   <div className={`polaroid-caption ${!editState?.caption ? 'empty' : ''}`}
@@ -345,7 +345,7 @@ export default function Upload() {
                     {editState?.caption || 'Sem legenda'}
                   </div>
                 )}
-                {isPolaroidMode && !isEdited && (
+                {hasSelectedSize && !isEdited && (
                   <div className="edit-overlay">
                     <i className="fas fa-edit"></i>
                     <span>Editar</span>
@@ -370,13 +370,14 @@ export default function Upload() {
           })}
         </div>
 
-        {/* Polaroid Editor Modal */}
-        {editingIndex >= 0 && isPolaroidMode && (
-          <PolaroidEditor
+        {/* Photo Editor Modal */}
+        {editingIndex >= 0 && sizeInfo && (
+          <PhotoEditor
             preview={previews[editingIndex]}
-            editState={polaroidEdits.get(editingIndex) || null}
-            onSave={handleSavePolaroid}
-            onCancel={handleCancelPolaroid}
+            sizeInfo={sizeInfo}
+            editState={photoEdits.get(editingIndex) || null}
+            onSave={handleSavePhoto}
+            onCancel={handleCancelEdit}
           />
         )}
 

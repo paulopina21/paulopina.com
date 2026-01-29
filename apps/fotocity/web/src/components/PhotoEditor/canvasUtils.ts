@@ -1,0 +1,280 @@
+import { PhotoEditState, FilterOption } from './types'
+import { PhotoSizeInfo } from '../../utils/photoSizes'
+
+interface ImagePosition {
+  dx: number
+  dy: number
+  dw: number
+  dh: number
+}
+
+/**
+ * Calculate how to position the image within the target area
+ * considering zoom and pan values
+ */
+export function calculateImagePosition(
+  imgWidth: number,
+  imgHeight: number,
+  zoom: number,
+  panX: number,
+  panY: number,
+  targetWidth: number,
+  targetHeight: number
+): ImagePosition {
+  const imgAspect = imgWidth / imgHeight
+  const targetAspect = targetWidth / targetHeight
+
+  let baseWidth: number
+  let baseHeight: number
+
+  // Cover the target area - image fills the frame
+  if (imgAspect > targetAspect) {
+    // Image is wider than target - fit height
+    baseHeight = targetHeight
+    baseWidth = targetHeight * imgAspect
+  } else {
+    // Image is taller than target - fit width
+    baseWidth = targetWidth
+    baseHeight = targetWidth / imgAspect
+  }
+
+  // Apply zoom
+  const scaledWidth = baseWidth * zoom
+  const scaledHeight = baseHeight * zoom
+
+  // Calculate pan offset (pan is -1 to 1, representing max scroll in each direction)
+  const overflowX = Math.max(0, scaledWidth - targetWidth)
+  const overflowY = Math.max(0, scaledHeight - targetHeight)
+
+  const offsetX = (panX * overflowX) / 2
+  const offsetY = (panY * overflowY) / 2
+
+  // Center the image and apply pan
+  const dx = (targetWidth - scaledWidth) / 2 + offsetX
+  const dy = (targetHeight - scaledHeight) / 2 + offsetY
+
+  return {
+    dx,
+    dy,
+    dw: scaledWidth,
+    dh: scaledHeight,
+  }
+}
+
+/**
+ * Wrap text to fit within a given width
+ */
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    const metrics = ctx.measureText(testLine)
+
+    if (metrics.width > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine)
+  }
+
+  return lines.length > 0 ? lines : ['']
+}
+
+/**
+ * Load an image from a URL or data URL
+ */
+export function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+/**
+ * Apply filter to canvas
+ */
+function applyFilter(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  filter: FilterOption
+): void {
+  if (filter.name !== 'none') {
+    filter.apply(ctx, canvas)
+  }
+}
+
+/**
+ * Render the photo to a canvas at the specified dimensions
+ */
+async function renderToCanvas(
+  canvas: HTMLCanvasElement,
+  img: HTMLImageElement,
+  editState: PhotoEditState,
+  sizeInfo: PhotoSizeInfo,
+  scale: number = 1
+): Promise<void> {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Could not get canvas context')
+
+  const width = Math.round(sizeInfo.widthPx * scale)
+  const height = Math.round(sizeInfo.heightPx * scale)
+
+  canvas.width = width
+  canvas.height = height
+
+  // For Polaroid, we need special handling
+  if (sizeInfo.isPolaroid && sizeInfo.photoAreaPx && sizeInfo.marginPx) {
+    const photoWidth = Math.round(sizeInfo.photoAreaPx.width * scale)
+    const photoHeight = Math.round(sizeInfo.photoAreaPx.height * scale)
+    const marginHeight = Math.round(sizeInfo.marginPx * scale)
+
+    // Fill white background
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+
+    // Calculate and draw image in photo area
+    const pos = calculateImagePosition(
+      img.naturalWidth,
+      img.naturalHeight,
+      editState.zoom,
+      editState.panX,
+      editState.panY,
+      photoWidth,
+      photoHeight
+    )
+
+    // Clip to photo area
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, 0, photoWidth, photoHeight)
+    ctx.clip()
+
+    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, pos.dx, pos.dy, pos.dw, pos.dh)
+
+    // Apply filter to photo area only
+    if (editState.filter.name !== 'none') {
+      const photoData = ctx.getImageData(0, 0, photoWidth, photoHeight)
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = photoWidth
+      tempCanvas.height = photoHeight
+      const tempCtx = tempCanvas.getContext('2d')!
+      tempCtx.putImageData(photoData, 0, 0)
+      editState.filter.apply(tempCtx, tempCanvas)
+      ctx.putImageData(tempCtx.getImageData(0, 0, photoWidth, photoHeight), 0, 0)
+    }
+
+    ctx.restore()
+
+    // Draw caption if present
+    if (editState.caption?.trim() && editState.font && editState.color) {
+      const fontSize = Math.round(48 * scale)
+      const lineHeight = Math.round(56 * scale)
+      const padding = Math.round(30 * scale)
+      const maxTextWidth = width - padding * 2
+
+      ctx.font = `${fontSize}px '${editState.font.family}', cursive`
+      ctx.fillStyle = editState.color.hex
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      const lines = wrapText(ctx, editState.caption, maxTextWidth)
+      const totalTextHeight = lines.length * lineHeight
+      const startY = photoHeight + (marginHeight - totalTextHeight) / 2 + lineHeight / 2
+
+      lines.forEach((line, i) => {
+        ctx.fillText(line, width / 2, startY + i * lineHeight)
+      })
+    }
+  } else {
+    // Regular photo (not Polaroid)
+    const pos = calculateImagePosition(
+      img.naturalWidth,
+      img.naturalHeight,
+      editState.zoom,
+      editState.panX,
+      editState.panY,
+      width,
+      height
+    )
+
+    // Fill with white background (in case of gaps)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+
+    // Draw image
+    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, pos.dx, pos.dy, pos.dw, pos.dh)
+
+    // Apply filter
+    applyFilter(ctx, canvas, editState.filter)
+  }
+}
+
+/**
+ * Render the final photo for upload at print resolution
+ */
+export async function renderPhoto(
+  imageSrc: string,
+  editState: PhotoEditState,
+  sizeInfo: PhotoSizeInfo
+): Promise<Blob> {
+  const img = await loadImage(imageSrc)
+  const canvas = document.createElement('canvas')
+
+  await renderToCanvas(canvas, img, editState, sizeInfo, 1)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => {
+        if (blob) resolve(blob)
+        else reject(new Error('Failed to create blob'))
+      },
+      'image/jpeg',
+      0.95
+    )
+  })
+}
+
+/**
+ * Render a preview image (smaller size for thumbnails)
+ */
+export async function renderPreview(
+  imageSrc: string,
+  editState: PhotoEditState,
+  sizeInfo: PhotoSizeInfo,
+  maxWidth: number = 300
+): Promise<string> {
+  const img = await loadImage(imageSrc)
+  const canvas = document.createElement('canvas')
+
+  const scale = maxWidth / sizeInfo.widthPx
+  await renderToCanvas(canvas, img, editState, sizeInfo, scale)
+
+  return canvas.toDataURL('image/jpeg', 0.85)
+}
+
+/**
+ * Draw preview on an existing canvas (for interactive preview)
+ */
+export async function drawPreviewOnCanvas(
+  canvas: HTMLCanvasElement,
+  img: HTMLImageElement,
+  editState: PhotoEditState,
+  sizeInfo: PhotoSizeInfo,
+  scale: number
+): Promise<void> {
+  await renderToCanvas(canvas, img, editState, sizeInfo, scale)
+}
