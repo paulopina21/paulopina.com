@@ -5,11 +5,7 @@ import {
   renderPolaroid,
   loadFonts,
 } from '../components/PolaroidEditor'
-
-const PHOTO_SIZES = [
-  '8x8', 'Polaroid 8x10', '9x12', '10x10', '10x15', '13x18',
-  '15x15', '15x20', '20x20', '20x25', '20x30', '25x25', '30x30', '30x40', '30x42'
-]
+import { PHOTO_SIZES, parsePhotoSize } from '../utils/photoSizes'
 
 // API base - usa a API do Worker (R2) em produção ou proxy local em dev
 const API_BASE = import.meta.env.VITE_API_URL || ''
@@ -58,8 +54,10 @@ export default function Upload() {
   const maxImages = params.get('max') ? parseInt(params.get('max')!) : null
   const defaultSize = params.get('tamanho') || ''
 
-  // Check if Polaroid mode is active
-  const isPolaroidMode = (photoSize || defaultSize) === 'Polaroid 8x10'
+  // Get current selected size info
+  const currentSize = photoSize || defaultSize
+  const sizeInfo = currentSize ? parsePhotoSize(currentSize) : null
+  const isPolaroidMode = sizeInfo?.isPolaroid ?? false
 
   // Load fonts when Polaroid mode is activated
   useEffect(() => {
@@ -320,15 +318,20 @@ export default function Upload() {
           </div>
         )}
 
-        <div className="preview-grid">
+        <div className={`preview-grid ${sizeInfo ? `preview-grid-${sizeInfo.isPolaroid ? 'polaroid' : sizeInfo.orientation}` : ''}`}>
           {previews.map((preview, index) => {
             const editState = polaroidEdits.get(index)
             const isEdited = isPolaroidMode && editState
+            const itemClass = isPolaroidMode
+              ? 'preview-item polaroid'
+              : sizeInfo
+              ? `preview-item preview-item-${sizeInfo.orientation}`
+              : 'preview-item'
 
             return (
               <div
                 key={index}
-                className={`preview-item ${isPolaroidMode ? 'polaroid' : ''}`}
+                className={itemClass}
                 onClick={() => handleEditPolaroid(index)}
                 style={{ cursor: isPolaroidMode ? 'pointer' : 'default' }}
               >

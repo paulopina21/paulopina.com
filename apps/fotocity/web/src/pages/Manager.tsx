@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { checkSession, logout, getClients, getClientProducts, getProductPhotos } from '../api'
+import { extractSizeFromProductId, parsePhotoSize } from '../utils/photoSizes'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
@@ -272,17 +273,31 @@ export default function Manager() {
                 <p>Nenhuma foto encontrada.</p>
               </div>
             ) : (
-              <div className="photo-grid">
-                {photos.map((photo, index) => (
-                  <div
-                    key={index}
-                    className="photo-item"
-                    onClick={() => setLightboxPhoto(`${API_BASE}${photo.url}`)}
-                  >
-                    <img src={`${API_BASE}${photo.url}`} alt={`Foto ${index + 1}`} />
+              (() => {
+                const sizeStr = extractSizeFromProductId(selectedProduct)
+                const sizeInfo = sizeStr ? parsePhotoSize(sizeStr) : null
+                const gridClass = sizeInfo?.isPolaroid
+                  ? 'photo-grid photo-grid-polaroid'
+                  : sizeInfo?.orientation === 'portrait'
+                  ? 'photo-grid photo-grid-portrait'
+                  : sizeInfo?.orientation === 'landscape'
+                  ? 'photo-grid photo-grid-landscape'
+                  : 'photo-grid photo-grid-square'
+
+                return (
+                  <div className={gridClass}>
+                    {photos.map((photo, index) => (
+                      <div
+                        key={index}
+                        className={`photo-item ${sizeInfo?.isPolaroid ? 'polaroid-frame' : ''}`}
+                        onClick={() => setLightboxPhoto(`${API_BASE}${photo.url}`)}
+                      >
+                        <img src={`${API_BASE}${photo.url}`} alt={`Foto ${index + 1}`} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )
+              })()
             )}
           </>
         )}
