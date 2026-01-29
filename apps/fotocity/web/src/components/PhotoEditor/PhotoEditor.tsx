@@ -133,8 +133,8 @@ export default function PhotoEditor({
 
     const sensitivity = 0.01 / state.zoom
 
-    const newPanX = Math.max(-1, Math.min(1, initialPan.x - dx * sensitivity))
-    const newPanY = Math.max(-1, Math.min(1, initialPan.y - dy * sensitivity))
+    const newPanX = Math.max(-1, Math.min(1, initialPan.x + dx * sensitivity))
+    const newPanY = Math.max(-1, Math.min(1, initialPan.y + dy * sensitivity))
 
     handleStateChange({ panX: newPanX, panY: newPanY })
   }, [isDragging, dragStart, initialPan, state.zoom, handleStateChange])
@@ -174,8 +174,8 @@ export default function PhotoEditor({
 
       const sensitivity = 0.01 / state.zoom
 
-      const newPanX = Math.max(-1, Math.min(1, initialPan.x - dx * sensitivity))
-      const newPanY = Math.max(-1, Math.min(1, initialPan.y - dy * sensitivity))
+      const newPanX = Math.max(-1, Math.min(1, initialPan.x + dx * sensitivity))
+      const newPanY = Math.max(-1, Math.min(1, initialPan.y + dy * sensitivity))
 
       handleStateChange({ panX: newPanX, panY: newPanY })
     } else if (e.touches.length === 2 && lastTouchDistance !== null) {
