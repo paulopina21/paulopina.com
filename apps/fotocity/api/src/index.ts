@@ -93,7 +93,8 @@ async function uploadPhoto(
   env: Env,
   clientId: string,
   productId: string,
-  file: File
+  file: File,
+  copies: number = 1
 ): Promise<{ status: string; filename?: string; message?: string }> {
   if (!env.PHOTOS) {
     return {
@@ -110,6 +111,7 @@ async function uploadPhoto(
 
   await env.PHOTOS.put(key, file.stream(), {
     httpMetadata: { contentType: file.type },
+    customMetadata: { copies: String(copies) },
   });
 
   return { status: 'OK', filename };
@@ -261,7 +263,7 @@ async function listClientProducts(env: Env, clientId: string): Promise<{ produto
     .sort((a, b) => b.data - a.data);
 }
 
-async function listProductPhotos(env: Env, clientId: string, productId: string): Promise<{ key: string; url: string; data: number }[]> {
+async function listProductPhotos(env: Env, clientId: string, productId: string): Promise<{ key: string; url: string; data: number; copies: number }[]> {
   if (!env.PHOTOS) {
     return [];
   }
@@ -269,11 +271,21 @@ async function listProductPhotos(env: Env, clientId: string, productId: string):
   const prefix = `${clientId}/${productId}/`;
   const listed = await env.PHOTOS.list({ prefix });
 
-  return listed.objects.map((obj) => ({
-    key: obj.key,
-    url: `/api/photos/${obj.key}`,
-    data: obj.uploaded.getTime(),
-  })).sort((a, b) => b.data - a.data);
+  // Get metadata for each photo to retrieve copies count
+  const photos = await Promise.all(
+    listed.objects.map(async (obj) => {
+      const head = await env.PHOTOS!.head(obj.key);
+      const copies = head?.customMetadata?.copies ? parseInt(head.customMetadata.copies) : 1;
+      return {
+        key: obj.key,
+        url: `/api/photos/${obj.key}`,
+        data: obj.uploaded.getTime(),
+        copies,
+      };
+    })
+  );
+
+  return photos.sort((a, b) => b.data - a.data);
 }
 
 async function getPhotoFile(env: Env, request: Request, key: string): Promise<Response> {
@@ -374,7 +386,11 @@ export default {
           await saveClientMeta(env, clientId, nome || '', telefone || '');
         }
 
-        const result = await uploadPhoto(env, clientId, productId, file);
+        // Get copies count (default 1)
+        const copiesStr = formData.get('copies') as string;
+        const copies = copiesStr ? parseInt(copiesStr) || 1 : 1;
+
+        const result = await uploadPhoto(env, clientId, productId, file, copies);
         return jsonResponse(request, result);
       }
 

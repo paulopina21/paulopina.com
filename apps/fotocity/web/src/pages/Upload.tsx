@@ -183,11 +183,12 @@ export default function Upload() {
     const productId = getProductId()
 
     try {
-      // Upload each file (considering copies)
-      let uploadedCount = 0
+      // Upload each file once with copies as metadata
+      let totalCopies = 0
       for (let i = 0; i < files.length; i++) {
         const editState = photoEdits.get(i)
         const copies = editState?.copies || 1
+        totalCopies += copies
 
         let fileToUpload: File | Blob = files[i]
 
@@ -197,30 +198,24 @@ export default function Upload() {
           fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
         }
 
-        // Upload one file per copy
-        for (let c = 0; c < copies; c++) {
-          const formData = new FormData()
-          formData.append('id_cliente', clientId)
-          formData.append('id_produto', productId)
-          formData.append('img_file', fileToUpload)
-          formData.append('action', 'add_image')
-          // Add copy number to distinguish files if needed
-          if (copies > 1) {
-            formData.append('copy_number', String(c + 1))
-            formData.append('total_copies', String(copies))
-          }
-          // Save client metadata on first upload
-          if (uploadedCount === 0) {
-            formData.append('nome', nome.trim())
-            formData.append('telefone', whats.trim())
-          }
+        // Upload file once with copies metadata
+        const formData = new FormData()
+        formData.append('id_cliente', clientId)
+        formData.append('id_produto', productId)
+        formData.append('img_file', fileToUpload)
+        formData.append('action', 'add_image')
+        formData.append('copies', String(copies))
 
-          await fetch(`${API_BASE}/api/photos`, {
-            method: 'POST',
-            body: formData,
-          })
-          uploadedCount++
+        // Save client metadata on first upload
+        if (i === 0) {
+          formData.append('nome', nome.trim())
+          formData.append('telefone', whats.trim())
         }
+
+        await fetch(`${API_BASE}/api/photos`, {
+          method: 'POST',
+          body: formData,
+        })
       }
 
       // Send webhook with album URL
@@ -234,7 +229,7 @@ export default function Upload() {
             nome: nome.trim(),
             email: email.trim(),
             telefone: whats.trim(),
-            numero_fotos: uploadedCount,
+            numero_fotos: totalCopies,
             url_album: albumUrl,
           }),
         })

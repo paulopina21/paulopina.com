@@ -15,6 +15,7 @@ interface Photo {
   key: string
   url: string
   data: number
+  copies: number
 }
 
 function formatDate(timestamp: number): string {
@@ -532,12 +533,19 @@ export default function Manager() {
         {/* Header */}
         <div className="admin-header">
           <div className="admin-title">
-            {selectedProduct ? (
-              <>
-                <h1>{photos.length} Fotos do Envio</h1>
-                <span className="admin-subtitle">{formatProductName(selectedProduct)}</span>
-              </>
-            ) : selectedClient ? (
+            {selectedProduct ? (() => {
+              const totalCopies = photos.reduce((sum, p) => sum + (p.copies || 1), 0)
+              const hasCopies = totalCopies > photos.length
+              return (
+                <>
+                  <h1>
+                    {photos.length} {photos.length === 1 ? 'Foto' : 'Fotos'} do Envio
+                    {hasCopies && <span style={{ fontSize: '16px', fontWeight: 'normal', color: '#666' }}> ({totalCopies} impressões)</span>}
+                  </h1>
+                  <span className="admin-subtitle">{formatProductName(selectedProduct)}</span>
+                </>
+              )
+            })() : selectedClient ? (
               <>
                 <h1>{selectedClient.nome || selectedClient.email}</h1>
                 <span className="admin-subtitle">
@@ -821,6 +829,11 @@ export default function Manager() {
                         }
                       }}
                     />
+                    {photo.copies > 1 && (
+                      <div className="copies-badge">
+                        <i className="fas fa-copy"></i> {photo.copies}x
+                      </div>
+                    )}
                     <div className="photo-info">
                       <span className="photo-resolution">Carregando...</span>
                     </div>
@@ -845,6 +858,11 @@ export default function Manager() {
         <div className="lightbox" onClick={() => setLightboxPhoto(null)}>
           <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
             <img src={`${API_BASE}${lightboxPhoto.url}`} alt="Foto ampliada" />
+            {lightboxPhoto.copies > 1 && (
+              <div className="lightbox-copies-badge">
+                <i className="fas fa-copy"></i> {lightboxPhoto.copies} cópias
+              </div>
+            )}
             <div className="lightbox-actions">
               <button
                 className="btn primary"

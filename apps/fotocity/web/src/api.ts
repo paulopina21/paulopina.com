@@ -74,7 +74,7 @@ export async function getClientProducts(clientId: string): Promise<{ produto: st
   }
 }
 
-export async function getProductPhotos(clientId: string, productId: string): Promise<{ key: string; url: string; data: number }[]> {
+export async function getProductPhotos(clientId: string, productId: string): Promise<{ key: string; url: string; data: number; copies: number }[]> {
   try {
     const res = await fetch(`${API_BASE}/api/admin/clients/${encodeURIComponent(clientId)}/products/${encodeURIComponent(productId)}/photos`, { credentials: 'include' });
     const data = await res.json();
