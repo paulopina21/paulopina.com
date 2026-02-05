@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { checkSession, logout, getClients, getClientProducts, getProductPhotos, deleteClient, deleteProduct, Client } from '../api'
+import { checkSession, logout, getClients, getClientProducts, getProductPhotos, Client } from '../api'
 import { extractSizeFromProductId, parsePhotoSize, PHOTO_SIZES } from '../utils/photoSizes'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
@@ -48,24 +48,48 @@ function getWhatsAppUrl(telefone: string): string {
   return `https://wa.me/${number}`
 }
 
-async function downloadFile(url: string, filename: string) {
-  const response = await fetch(url)
+// Download a single file
+async function downloadSingleFile(url: string, filename: string): Promise<void> {
+  const response = await fetch(url, { credentials: 'include' })
+  if (!response.ok) throw new Error('Download failed')
   const blob = await response.blob()
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = filename
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   URL.revokeObjectURL(a.href)
 }
 
-async function downloadAllPhotos(photos: Photo[], prefix: string) {
+// Download multiple files as ZIP
+async function downloadAsZip(
+  photos: Photo[],
+  zipName: string,
+  onProgress: (current: number, total: number) => void
+): Promise<void> {
+  // Dynamically import JSZip
+  const JSZip = (await import('jszip')).default
+  const zip = new JSZip()
+
   for (let i = 0; i < photos.length; i++) {
+    onProgress(i + 1, photos.length)
     const photo = photos[i]
+    const response = await fetch(`${API_BASE}${photo.url}`, { credentials: 'include' })
+    if (!response.ok) continue
+    const blob = await response.blob()
     const ext = photo.key.split('.').pop() || 'jpg'
-    await downloadFile(`${API_BASE}${photo.url}`, `${prefix}_${i + 1}.${ext}`)
-    // Small delay to avoid overwhelming the browser
-    await new Promise(r => setTimeout(r, 200))
+    zip.file(`foto_${i + 1}.${ext}`, blob)
   }
+
+  const content = await zip.generateAsync({ type: 'blob' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(content)
+  a.download = `${zipName}.zip`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(a.href)
 }
 
 export default function Manager() {
@@ -88,7 +112,10 @@ export default function Manager() {
   const [loadingPhotos, setLoadingPhotos] = useState(false)
 
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null)
-  const [deleting, setDeleting] = useState(false)
+
+  // Download state
+  const [downloading, setDownloading] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 })
 
   const navigate = useNavigate()
 
@@ -110,7 +137,6 @@ export default function Manager() {
       const productParam = params.get('product')
 
       if (clientParam) {
-        // Find the client
         const client = data.find(c => c.email === clientParam)
         if (client) {
           setSelectedClient(client)
@@ -119,7 +145,6 @@ export default function Manager() {
           setProducts(products)
           setLoadingProducts(false)
 
-          // If product is specified, navigate to photos
           if (productParam) {
             const product = products.find(p => p.produto === productParam)
             if (product) {
@@ -131,7 +156,6 @@ export default function Manager() {
             }
           }
         }
-        // Clear URL parameters after navigation
         window.history.replaceState({}, '', '/manager')
       }
     }
@@ -143,11 +167,19 @@ export default function Manager() {
     navigate('/login')
   }
 
+  const handleGoHome = () => {
+    setSelectedClient(null)
+    setSelectedProduct(null)
+    setProducts([])
+    setPhotos([])
+    setSelectedClientIds(new Set())
+    setSelectedProductIds(new Set())
+  }
+
   // Filter and sort clients
   const filteredClients = useMemo(() => {
     let result = [...clients]
 
-    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       result = result.filter(c =>
@@ -157,14 +189,12 @@ export default function Manager() {
       )
     }
 
-    // Date filter
     if (dateFilter) {
       const filterDate = new Date(dateFilter).getTime()
       const nextDay = filterDate + 24 * 60 * 60 * 1000
       result = result.filter(c => c.data >= filterDate && c.data < nextDay)
     }
 
-    // Sort
     if (sortBy === 'nome') {
       result.sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email))
     } else {
@@ -206,11 +236,6 @@ export default function Manager() {
     setLoadingProducts(false)
   }
 
-  const handleViewProducts = async (client: Client, e: React.MouseEvent) => {
-    e.stopPropagation()
-    await handleSelectClient(client)
-  }
-
   const handleSelectProduct = async (productId: string) => {
     setSelectedProduct(productId)
     setLoadingPhotos(true)
@@ -218,11 +243,6 @@ export default function Manager() {
     const data = await getProductPhotos(selectedClient!.email, productId)
     setPhotos(data)
     setLoadingPhotos(false)
-  }
-
-  const handleViewPhotos = async (productId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    await handleSelectProduct(productId)
   }
 
   const handleBack = () => {
@@ -246,10 +266,6 @@ export default function Manager() {
       newSet.add(email)
     }
     setSelectedClientIds(newSet)
-  }
-
-  const selectAllClients = () => {
-    setSelectedClientIds(new Set(filteredClients.map(c => c.email)))
   }
 
   const selectOldClients = () => {
@@ -282,87 +298,125 @@ export default function Manager() {
     setSelectedProductIds(new Set())
   }
 
-  // Delete operations
-  const handleDeleteClient = async (email: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm(`Tem certeza que deseja excluir o cliente "${email}" e todas as suas fotos?`)) return
-
-    setDeleting(true)
-    await deleteClient(email)
-    setClients(prev => prev.filter(c => c.email !== email))
-    setSelectedClientIds(prev => {
-      const newSet = new Set(prev)
-      newSet.delete(email)
-      return newSet
-    })
-    setDeleting(false)
-  }
-
-  const handleDeleteSelectedClients = async () => {
-    if (selectedClientIds.size === 0) return
-    if (!confirm(`Tem certeza que deseja excluir ${selectedClientIds.size} cliente(s) e todas as suas fotos?`)) return
-
-    setDeleting(true)
-    for (const email of selectedClientIds) {
-      await deleteClient(email)
-    }
-    setClients(prev => prev.filter(c => !selectedClientIds.has(c.email)))
-    setSelectedClientIds(new Set())
-    setDeleting(false)
-  }
-
-  const handleDeleteProduct = async (productId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm(`Tem certeza que deseja excluir este envio e todas as suas fotos?`)) return
-
-    setDeleting(true)
-    await deleteProduct(selectedClient!.email, productId)
-    setProducts(prev => prev.filter(p => p.produto !== productId))
-    setSelectedProductIds(prev => {
-      const newSet = new Set(prev)
-      newSet.delete(productId)
-      return newSet
-    })
-    setDeleting(false)
-  }
-
-  const handleDeleteSelectedProducts = async () => {
-    if (selectedProductIds.size === 0) return
-    if (!confirm(`Tem certeza que deseja excluir ${selectedProductIds.size} envio(s) e todas as suas fotos?`)) return
-
-    setDeleting(true)
-    for (const productId of selectedProductIds) {
-      await deleteProduct(selectedClient!.email, productId)
-    }
-    setProducts(prev => prev.filter(p => !selectedProductIds.has(p.produto)))
-    setSelectedProductIds(new Set())
-    setDeleting(false)
-  }
-
   // Download operations
   const handleDownloadClientPhotos = async (client: Client, e: React.MouseEvent) => {
     e.stopPropagation()
-    const prods = await getClientProducts(client.email)
-    for (const prod of prods) {
-      const photos = await getProductPhotos(client.email, prod.produto)
-      await downloadAllPhotos(photos, `${client.nome || client.email}_${prod.produto}`)
+    if (downloading) return
+
+    setDownloading(true)
+    setDownloadProgress({ current: 0, total: 0 })
+
+    try {
+      const prods = await getClientProducts(client.email)
+      const allPhotos: Photo[] = []
+
+      for (const prod of prods) {
+        const photos = await getProductPhotos(client.email, prod.produto)
+        allPhotos.push(...photos)
+      }
+
+      if (allPhotos.length === 0) {
+        alert('Nenhuma foto encontrada')
+        return
+      }
+
+      if (allPhotos.length === 1) {
+        const photo = allPhotos[0]
+        const ext = photo.key.split('.').pop() || 'jpg'
+        await downloadSingleFile(`${API_BASE}${photo.url}`, `${client.nome || client.email}.${ext}`)
+      } else {
+        await downloadAsZip(allPhotos, client.nome || client.email, (current, total) => {
+          setDownloadProgress({ current, total })
+        })
+      }
+    } catch (err) {
+      console.error('Download error:', err)
+      alert('Erro ao baixar fotos')
+    } finally {
+      setDownloading(false)
     }
   }
 
   const handleDownloadProductPhotos = async (productId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    const photos = await getProductPhotos(selectedClient!.email, productId)
-    await downloadAllPhotos(photos, `${selectedClient!.nome || selectedClient!.email}_${productId}`)
+    if (downloading) return
+
+    setDownloading(true)
+    setDownloadProgress({ current: 0, total: 0 })
+
+    try {
+      const photos = await getProductPhotos(selectedClient!.email, productId)
+
+      if (photos.length === 0) {
+        alert('Nenhuma foto encontrada')
+        return
+      }
+
+      const zipName = `${selectedClient!.nome || selectedClient!.email}_${formatProductName(productId).replace(/[/:]/g, '-')}`
+
+      if (photos.length === 1) {
+        const photo = photos[0]
+        const ext = photo.key.split('.').pop() || 'jpg'
+        await downloadSingleFile(`${API_BASE}${photo.url}`, `${zipName}.${ext}`)
+      } else {
+        await downloadAsZip(photos, zipName, (current, total) => {
+          setDownloadProgress({ current, total })
+        })
+      }
+    } catch (err) {
+      console.error('Download error:', err)
+      alert('Erro ao baixar fotos')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const handleDownloadAllCurrentPhotos = async () => {
-    await downloadAllPhotos(photos, `${selectedClient!.nome || selectedClient!.email}_${selectedProduct}`)
+    if (downloading) return
+
+    setDownloading(true)
+    setDownloadProgress({ current: 0, total: 0 })
+
+    try {
+      if (photos.length === 0) {
+        alert('Nenhuma foto encontrada')
+        return
+      }
+
+      const zipName = `${selectedClient!.nome || selectedClient!.email}_${formatProductName(selectedProduct!).replace(/[/:]/g, '-')}`
+
+      if (photos.length === 1) {
+        const photo = photos[0]
+        const ext = photo.key.split('.').pop() || 'jpg'
+        await downloadSingleFile(`${API_BASE}${photo.url}`, `${zipName}.${ext}`)
+      } else {
+        await downloadAsZip(photos, zipName, (current, total) => {
+          setDownloadProgress({ current, total })
+        })
+      }
+    } catch (err) {
+      console.error('Download error:', err)
+      alert('Erro ao baixar fotos')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const handleDownloadPhoto = async (photo: Photo, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
-    const filename = photo.key.split('/').pop() || 'photo.jpg'
-    await downloadFile(`${API_BASE}${photo.url}`, filename)
+    if (downloading) return
+
+    setDownloading(true)
+
+    try {
+      const filename = photo.key.split('/').pop() || 'photo.jpg'
+      await downloadSingleFile(`${API_BASE}${photo.url}`, filename)
+    } catch (err) {
+      console.error('Download error:', err)
+      alert('Erro ao baixar foto')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   if (loading) {
@@ -376,7 +430,6 @@ export default function Manager() {
   const sizeStr = selectedProduct ? extractSizeFromProductId(selectedProduct) : null
   const sizeInfo = sizeStr ? parsePhotoSize(sizeStr) : null
 
-  // Calculate image size based on photo count
   const getPhotoItemSize = () => {
     const count = photos.length
     if (count <= 4) return 'large'
@@ -398,8 +451,27 @@ export default function Manager() {
       </div>
 
       <div className="fc-header">
-        <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
+        <img
+          src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png"
+          alt="FotoCity Logo"
+          onClick={handleGoHome}
+          style={{ cursor: 'pointer' }}
+        />
       </div>
+
+      {/* Download Progress Overlay */}
+      {downloading && (
+        <div className="download-overlay">
+          <div className="download-modal">
+            <div className="download-spinner"></div>
+            <p>
+              {downloadProgress.total > 0
+                ? `Baixando ${downloadProgress.current} de ${downloadProgress.total} fotos...`
+                : 'Preparando download...'}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="admin-container">
         {/* Header */}
@@ -434,7 +506,7 @@ export default function Manager() {
           </div>
           <div className="admin-actions">
             {selectedProduct && (
-              <button className="btn primary" onClick={handleDownloadAllCurrentPhotos}>
+              <button className="btn primary" onClick={handleDownloadAllCurrentPhotos} disabled={downloading}>
                 <i className="fas fa-download"></i> Baixar Todas
               </button>
             )}
@@ -456,7 +528,7 @@ export default function Manager() {
             <div className="admin-filters">
               <input
                 type="text"
-                placeholder="Buscar por email ou telefone..."
+                placeholder="Buscar por nome, email ou telefone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="filter-input"
@@ -485,25 +557,13 @@ export default function Manager() {
                 )}
               </div>
               <div className="selection-actions">
-                <button className="btn-small" onClick={selectAllClients}>
-                  Selecionar Todos
-                </button>
                 <button className="btn-small" onClick={selectOldClients}>
                   Selecionar Antigos (+3 meses)
                 </button>
                 {selectedClientIds.size > 0 && (
-                  <>
-                    <button className="btn-small" onClick={clearClientSelection}>
-                      Limpar Seleção
-                    </button>
-                    <button
-                      className="btn-small danger"
-                      onClick={handleDeleteSelectedClients}
-                      disabled={deleting}
-                    >
-                      <i className="fas fa-trash"></i> Excluir Selecionados
-                    </button>
-                  </>
+                  <button className="btn-small" onClick={clearClientSelection}>
+                    Limpar Seleção
+                  </button>
                 )}
               </div>
             </div>
@@ -521,7 +581,7 @@ export default function Manager() {
                     <th>Cliente</th>
                     <th>Telefone</th>
                     <th>Última Atualização</th>
-                    <th style={{ width: 180 }}>Ações</th>
+                    <th style={{ width: 120 }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -529,6 +589,7 @@ export default function Manager() {
                     <tr
                       key={client.email}
                       className={`clickable-row ${isOlderThan3Months(client.data) ? 'old-item' : ''}`}
+                      onClick={() => handleSelectClient(client)}
                     >
                       <td onClick={(e) => toggleClientSelection(client.email, e)}>
                         <input
@@ -551,23 +612,16 @@ export default function Manager() {
                           className="btn-icon"
                           onClick={(e) => handleDownloadClientPhotos(client, e)}
                           title="Baixar todas as fotos"
+                          disabled={downloading}
                         >
                           <i className="fas fa-download"></i>
                         </button>
                         <button
                           className="btn-icon primary"
-                          onClick={(e) => handleViewProducts(client, e)}
+                          onClick={(e) => { e.stopPropagation(); handleSelectClient(client) }}
                           title="Ver envios"
                         >
                           <i className="fas fa-images"></i>
-                        </button>
-                        <button
-                          className="btn-icon danger"
-                          onClick={(e) => handleDeleteClient(client.email, e)}
-                          title="Excluir cliente"
-                          disabled={deleting}
-                        >
-                          <i className="fas fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -613,18 +667,9 @@ export default function Manager() {
                   Selecionar Antigos (+3 meses)
                 </button>
                 {selectedProductIds.size > 0 && (
-                  <>
-                    <button className="btn-small" onClick={clearProductSelection}>
-                      Limpar Seleção
-                    </button>
-                    <button
-                      className="btn-small danger"
-                      onClick={handleDeleteSelectedProducts}
-                      disabled={deleting}
-                    >
-                      <i className="fas fa-trash"></i> Excluir Selecionados
-                    </button>
-                  </>
+                  <button className="btn-small" onClick={clearProductSelection}>
+                    Limpar Seleção
+                  </button>
                 )}
               </div>
             </div>
@@ -645,7 +690,7 @@ export default function Manager() {
                     <th>Envio</th>
                     <th>Qtd Fotos</th>
                     <th>Data</th>
-                    <th style={{ width: 180 }}>Ações</th>
+                    <th style={{ width: 120 }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -653,6 +698,7 @@ export default function Manager() {
                     <tr
                       key={product.produto}
                       className={`clickable-row ${isOlderThan3Months(product.data) ? 'old-item' : ''}`}
+                      onClick={() => handleSelectProduct(product.produto)}
                     >
                       <td onClick={(e) => toggleProductSelection(product.produto, e)}>
                         <input
@@ -670,23 +716,16 @@ export default function Manager() {
                           className="btn-icon"
                           onClick={(e) => handleDownloadProductPhotos(product.produto, e)}
                           title="Baixar fotos"
+                          disabled={downloading}
                         >
                           <i className="fas fa-download"></i>
                         </button>
                         <button
                           className="btn-icon primary"
-                          onClick={(e) => handleViewPhotos(product.produto, e)}
+                          onClick={(e) => { e.stopPropagation(); handleSelectProduct(product.produto) }}
                           title="Ver fotos"
                         >
                           <i className="fas fa-eye"></i>
-                        </button>
-                        <button
-                          className="btn-icon danger"
-                          onClick={(e) => handleDeleteProduct(product.produto, e)}
-                          title="Excluir envio"
-                          disabled={deleting}
-                        >
-                          <i className="fas fa-trash"></i>
                         </button>
                       </td>
                     </tr>
@@ -734,6 +773,7 @@ export default function Manager() {
                       className="photo-download-btn"
                       onClick={(e) => handleDownloadPhoto(photo, e)}
                       title="Baixar foto"
+                      disabled={downloading}
                     >
                       <i className="fas fa-download"></i>
                     </button>
@@ -754,6 +794,7 @@ export default function Manager() {
               <button
                 className="btn primary"
                 onClick={() => handleDownloadPhoto(lightboxPhoto)}
+                disabled={downloading}
               >
                 <i className="fas fa-download"></i> Baixar
               </button>
