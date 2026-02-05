@@ -22,10 +22,36 @@ export interface PhotoSizeInfo {
   // For Polaroid, photo area is square, margin is at bottom
   photoAreaPx?: { width: number; height: number }
   marginPx?: number
+  // For Mini Polaroid: render on larger canvas with colored border for cutting
+  printCanvas?: {
+    widthPx: number
+    heightPx: number
+    borderColor: string
+  }
 }
 
 // Pre-calculated sizes for all formats
 export const PHOTO_SIZE_INFO: Record<string, PhotoSizeInfo> = {
+  '5x7': {
+    name: '5x7',
+    widthCm: 5, heightCm: 7,
+    widthPx: cmToPixels(5), heightPx: cmToPixels(7),
+    aspectRatio: 5 / 7, orientation: 'portrait', isPolaroid: false,
+  },
+  'Mini Polaroid 6x8': {
+    name: 'Mini Polaroid 6x8',
+    widthCm: 6, heightCm: 8,
+    widthPx: cmToPixels(6), heightPx: cmToPixels(8),
+    aspectRatio: 6 / 8, orientation: 'portrait', isPolaroid: true,
+    photoAreaPx: { width: cmToPixels(6), height: cmToPixels(6) },
+    marginPx: cmToPixels(2),
+    // Print on 8x10 paper with red border for cutting
+    printCanvas: {
+      widthPx: cmToPixels(8),
+      heightPx: cmToPixels(10),
+      borderColor: '#FF0000',
+    },
+  },
   '8x8': {
     name: '8x8',
     widthCm: 8, heightCm: 8,
@@ -168,7 +194,13 @@ export function parsePhotoSize(sizeStr: string): PhotoSizeInfo | null {
 
 // Extract size from product ID string like "2025-01-28_22-30_Polaroid8x10" or "2025-01-28_22-30_10x15"
 export function extractSizeFromProductId(productId: string): string | null {
-  // Try to match size patterns
+  // Try to match Mini Polaroid first
+  const miniPolaroidMatch = productId.match(/MiniPolaroid\s*(\d+x\d+)/i)
+  if (miniPolaroidMatch) {
+    return `Mini Polaroid ${miniPolaroidMatch[1]}`
+  }
+
+  // Try to match regular Polaroid
   const polaroidMatch = productId.match(/Polaroid\s*(\d+x\d+)/i)
   if (polaroidMatch) {
     return `Polaroid ${polaroidMatch[1]}`
@@ -232,6 +264,8 @@ export function getOrientationClass(sizeStr: string | null): string {
 
 // All available photo sizes
 export const PHOTO_SIZES = [
+  '5x7',
+  'Mini Polaroid 6x8',
   '8x8',
   'Polaroid 8x10',
   '9x12',

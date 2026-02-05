@@ -346,6 +346,36 @@ export async function renderPhoto(
 
   await renderToCanvas(canvas, img, editState, sizeInfo, 1)
 
+  // If this size requires a larger print canvas (e.g., Mini Polaroid on 8x10 paper)
+  if (sizeInfo.printCanvas) {
+    const printCanvas = document.createElement('canvas')
+    printCanvas.width = sizeInfo.printCanvas.widthPx
+    printCanvas.height = sizeInfo.printCanvas.heightPx
+
+    const ctx = printCanvas.getContext('2d')
+    if (ctx) {
+      // Fill with border color (red for cutting guide)
+      ctx.fillStyle = sizeInfo.printCanvas.borderColor
+      ctx.fillRect(0, 0, printCanvas.width, printCanvas.height)
+
+      // Center the rendered photo on the print canvas
+      const offsetX = Math.round((printCanvas.width - canvas.width) / 2)
+      const offsetY = Math.round((printCanvas.height - canvas.height) / 2)
+      ctx.drawImage(canvas, offsetX, offsetY)
+    }
+
+    return new Promise((resolve, reject) => {
+      printCanvas.toBlob(
+        blob => {
+          if (blob) resolve(blob)
+          else reject(new Error('Failed to create blob'))
+        },
+        'image/jpeg',
+        0.95
+      )
+    })
+  }
+
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       blob => {
