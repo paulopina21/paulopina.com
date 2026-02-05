@@ -1,5 +1,6 @@
 import { PhotoEditState, FilterOption } from './types'
 import { PhotoSizeInfo } from '../../utils/photoSizes'
+import { upscaleForPrint, checkResolutionQuality } from '../../utils/imageUtils'
 
 interface ImagePosition {
   dx: number
@@ -335,15 +336,43 @@ async function renderToCanvas(
 
 /**
  * Render the final photo for upload at print resolution
+ * Includes smart upscaling for low-resolution images
  */
 export async function renderPhoto(
   imageSrc: string,
   editState: PhotoEditState,
-  sizeInfo: PhotoSizeInfo
+  sizeInfo: PhotoSizeInfo,
+  enableUpscale: boolean = true
 ): Promise<Blob> {
-  const img = await loadImage(imageSrc)
-  const canvas = document.createElement('canvas')
+  let img = await loadImage(imageSrc)
 
+  // Calculate target dimensions for quality check
+  let targetWidth = sizeInfo.widthPx
+  let targetHeight = sizeInfo.heightPx
+
+  // Adjust for orientation
+  if (!sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape') {
+    targetWidth = sizeInfo.heightPx
+    targetHeight = sizeInfo.widthPx
+  }
+
+  // Check if upscaling would help and apply if enabled
+  if (enableUpscale) {
+    const { needsUpscale, quality } = checkResolutionQuality(
+      img.naturalWidth,
+      img.naturalHeight,
+      targetWidth,
+      targetHeight
+    )
+
+    if (needsUpscale && quality === 'low') {
+      // Only upscale for very low resolution images
+      console.log(`Upscaling image from ${img.naturalWidth}x${img.naturalHeight} for print quality`)
+      img = await upscaleForPrint(img, targetWidth, targetHeight)
+    }
+  }
+
+  const canvas = document.createElement('canvas')
   await renderToCanvas(canvas, img, editState, sizeInfo, 1)
 
   // If this size requires a larger print canvas (e.g., Mini Polaroid on 8x10 paper)

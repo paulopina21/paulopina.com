@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { PhotoEditor, PhotoEditState, renderPhoto } from '../components/PhotoEditor'
 import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
+import { processImageFile, isHeicFile } from '../utils/imageUtils'
 
 // API base - usa a API do Worker (R2) em produção ou proxy local em dev
 const API_BASE = import.meta.env.VITE_API_URL || ''
@@ -71,7 +72,10 @@ export default function Upload() {
     setTimeout(() => setMessage(null), 3500)
   }
 
-  const handleFiles = useCallback((newFiles: FileList | null) => {
+  const [processing, setProcessing] = useState(false)
+  const [processingStatus, setProcessingStatus] = useState('')
+
+  const handleFiles = useCallback(async (newFiles: FileList | null) => {
     if (!newFiles) return
 
     const incoming = Array.from(newFiles)
@@ -81,19 +85,36 @@ export default function Upload() {
       return
     }
 
-    const newPreviews: string[] = []
-    incoming.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        newPreviews.push(e.target?.result as string)
-        if (newPreviews.length === incoming.length) {
-          setPreviews(prev => [...prev, ...newPreviews])
-        }
-      }
-      reader.readAsDataURL(file)
-    })
+    // Check if any HEIC files need conversion
+    const hasHeic = incoming.some(isHeicFile)
+    if (hasHeic) {
+      setProcessing(true)
+      setProcessingStatus('Processando imagens...')
+    }
 
-    setFiles(prev => [...prev, ...incoming])
+    try {
+      const processedFiles: File[] = []
+      const newPreviews: string[] = []
+
+      for (const file of incoming) {
+        if (isHeicFile(file)) {
+          setProcessingStatus(`Convertendo ${file.name}...`)
+        }
+
+        const { file: processedFile, dataUrl } = await processImageFile(file)
+        processedFiles.push(processedFile)
+        newPreviews.push(dataUrl)
+      }
+
+      setFiles(prev => [...prev, ...processedFiles])
+      setPreviews(prev => [...prev, ...newPreviews])
+    } catch (error) {
+      console.error('Error processing files:', error)
+      showMessage('Erro ao processar imagem. Tente outro formato.', 'error')
+    } finally {
+      setProcessing(false)
+      setProcessingStatus('')
+    }
   }, [files.length, maxImages])
 
   const removeFile = (index: number) => {
@@ -288,6 +309,16 @@ export default function Upload() {
       <div className="fc-header">
         <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
       </div>
+
+      {/* Processing overlay for HEIC conversion */}
+      {processing && (
+        <div className="download-overlay">
+          <div className="download-modal">
+            <div className="download-spinner"></div>
+            <p>{processingStatus || 'Processando...'}</p>
+          </div>
+        </div>
+      )}
 
       <div className="upload-container">
         <div
