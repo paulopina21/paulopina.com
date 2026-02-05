@@ -62,13 +62,12 @@ async function downloadSingleFile(url: string, filename: string): Promise<void> 
   URL.revokeObjectURL(a.href)
 }
 
-// Download multiple files as ZIP
+// Download multiple files as ZIP (flat structure)
 async function downloadAsZip(
   photos: Photo[],
   zipName: string,
   onProgress: (current: number, total: number) => void
 ): Promise<void> {
-  // Dynamically import JSZip
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
 
@@ -80,6 +79,57 @@ async function downloadAsZip(
     const blob = await response.blob()
     const ext = photo.key.split('.').pop() || 'jpg'
     zip.file(`foto_${i + 1}.${ext}`, blob)
+  }
+
+  const content = await zip.generateAsync({ type: 'blob' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(content)
+  a.download = `${zipName}.zip`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(a.href)
+}
+
+// Format product name for folder (filesystem-safe)
+function formatProductFolder(produto: string): string {
+  const match = produto.match(/(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})_?(.*)/)
+  if (match) {
+    const [, year, month, day, hour, min, size] = match
+    const dateStr = `${day}-${month}-${year}_${hour}h${min}`
+    return size ? `${dateStr}_${size}` : dateStr
+  }
+  return produto.replace(/[/:*?"<>|]/g, '-')
+}
+
+// Download client photos organized by product folders
+async function downloadClientAsZip(
+  products: { produto: string; photos: Photo[] }[],
+  zipName: string,
+  onProgress: (current: number, total: number) => void
+): Promise<void> {
+  const JSZip = (await import('jszip')).default
+  const zip = new JSZip()
+
+  // Count total photos
+  const totalPhotos = products.reduce((sum, p) => sum + p.photos.length, 0)
+  let processed = 0
+
+  for (const product of products) {
+    const folderName = formatProductFolder(product.produto)
+    const folder = zip.folder(folderName)
+    if (!folder) continue
+
+    for (let i = 0; i < product.photos.length; i++) {
+      processed++
+      onProgress(processed, totalPhotos)
+      const photo = product.photos[i]
+      const response = await fetch(`${API_BASE}${photo.url}`, { credentials: 'include' })
+      if (!response.ok) continue
+      const blob = await response.blob()
+      const ext = photo.key.split('.').pop() || 'jpg'
+      folder.file(`foto_${i + 1}.${ext}`, blob)
+    }
   }
 
   const content = await zip.generateAsync({ type: 'blob' })
@@ -308,24 +358,29 @@ export default function Manager() {
 
     try {
       const prods = await getClientProducts(client.email)
-      const allPhotos: Photo[] = []
+      const productsWithPhotos: { produto: string; photos: Photo[] }[] = []
+      let totalPhotos = 0
 
       for (const prod of prods) {
         const photos = await getProductPhotos(client.email, prod.produto)
-        allPhotos.push(...photos)
+        if (photos.length > 0) {
+          productsWithPhotos.push({ produto: prod.produto, photos })
+          totalPhotos += photos.length
+        }
       }
 
-      if (allPhotos.length === 0) {
+      if (totalPhotos === 0) {
         alert('Nenhuma foto encontrada')
         return
       }
 
-      if (allPhotos.length === 1) {
-        const photo = allPhotos[0]
+      if (totalPhotos === 1) {
+        const photo = productsWithPhotos[0].photos[0]
         const ext = photo.key.split('.').pop() || 'jpg'
         await downloadSingleFile(`${API_BASE}${photo.url}`, `${client.nome || client.email}.${ext}`)
       } else {
-        await downloadAsZip(allPhotos, client.nome || client.email, (current, total) => {
+        // Download organized by folders
+        await downloadClientAsZip(productsWithPhotos, client.nome || client.email, (current, total) => {
           setDownloadProgress({ current, total })
         })
       }
