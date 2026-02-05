@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { PhotoEditor, PhotoEditState, renderPhoto } from '../components/PhotoEditor'
+import { PhotoEditor, PhotoEditState, renderPhoto, getDefaultEditState } from '../components/PhotoEditor'
 import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
 import { processImageFile, isHeicFile } from '../utils/imageUtils'
 
@@ -211,13 +211,13 @@ export default function Upload() {
         const copies = editState?.copies || 1
         totalCopies += copies
 
-        let fileToUpload: File | Blob = files[i]
+        // ALWAYS render photos to correct print size with upscaling if needed
+        // Use existing edit state or create default one
+        const isRectangular = sizeInfo.orientation !== 'square' && !sizeInfo.isPolaroid
+        const finalEditState = editState || getDefaultEditState(sizeInfo.isPolaroid, isRectangular)
 
-        // If this file has edits, render the final image at print resolution
-        if (editState) {
-          const photoBlob = await renderPhoto(previews[i], editState, sizeInfo)
-          fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
-        }
+        const photoBlob = await renderPhoto(previews[i], finalEditState, sizeInfo, true)
+        const fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
 
         // Upload file once with copies metadata
         const formData = new FormData()

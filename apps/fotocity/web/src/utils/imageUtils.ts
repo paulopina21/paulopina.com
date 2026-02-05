@@ -209,9 +209,9 @@ export function checkResolutionQuality(
 
   if (effectiveDPI >= 300) {
     quality = 'excellent'
-  } else if (effectiveDPI >= 200) {
+  } else if (effectiveDPI >= 250) {
     quality = 'good'
-  } else if (effectiveDPI >= 150) {
+  } else if (effectiveDPI >= 200) {
     quality = 'acceptable'
     needsUpscale = true
   } else {
@@ -264,28 +264,22 @@ export async function upscaleForPrint(
   targetHeightPx: number,
   onProgress?: (status: string) => void
 ): Promise<HTMLImageElement> {
-  const { needsUpscale, currentDPI } = checkResolutionQuality(
-    img.naturalWidth,
-    img.naturalHeight,
-    targetWidthPx,
-    targetHeightPx
-  )
-
-  if (!needsUpscale) {
-    return img
-  }
-
-  onProgress?.(`Melhorando resolução (${currentDPI} DPI → 300 DPI)...`)
-
-  // Calculate target dimensions to achieve ~300 DPI
-  // We upscale to match the print dimensions
+  // Calculate scale needed to reach target print dimensions
   const scaleNeeded = Math.max(
     targetWidthPx / img.naturalWidth,
     targetHeightPx / img.naturalHeight
   )
 
-  // Don't upscale more than 3x to avoid too much quality loss
-  const maxScale = 3
+  // No upscaling needed if image is already large enough
+  if (scaleNeeded <= 1.05) {
+    return img
+  }
+
+  const currentDPI = Math.round(300 / scaleNeeded)
+  onProgress?.(`Melhorando resolução (${currentDPI} DPI → 300 DPI)...`)
+
+  // Don't upscale more than 4x to avoid too much quality loss
+  const maxScale = 4
   const actualScale = Math.min(scaleNeeded, maxScale)
 
   const newWidth = Math.round(img.naturalWidth * actualScale)

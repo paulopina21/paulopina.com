@@ -358,17 +358,18 @@ export async function renderPhoto(
 
   // Check if upscaling would help and apply if enabled
   if (enableUpscale) {
-    const { needsUpscale, quality } = checkResolutionQuality(
+    const { needsUpscale, currentDPI } = checkResolutionQuality(
       img.naturalWidth,
       img.naturalHeight,
       targetWidth,
       targetHeight
     )
 
-    if (needsUpscale && quality === 'low') {
-      // Only upscale for very low resolution images
-      console.log(`Upscaling image from ${img.naturalWidth}x${img.naturalHeight} for print quality`)
+    if (needsUpscale) {
+      // Upscale low resolution images to improve print quality
+      console.log(`Upscaling image from ${img.naturalWidth}x${img.naturalHeight} (${currentDPI} DPI) to target ${targetWidth}x${targetHeight}`)
       img = await upscaleForPrint(img, targetWidth, targetHeight)
+      console.log(`Upscaled to ${img.naturalWidth}x${img.naturalHeight}`)
     }
   }
 
