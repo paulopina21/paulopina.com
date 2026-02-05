@@ -103,6 +103,37 @@ export default function Manager() {
       const data = await getClients()
       setClients(data)
       setLoading(false)
+
+      // Check URL parameters for direct navigation
+      const params = new URLSearchParams(window.location.search)
+      const clientParam = params.get('client')
+      const productParam = params.get('product')
+
+      if (clientParam) {
+        // Find the client
+        const client = data.find(c => c.email === clientParam)
+        if (client) {
+          setSelectedClient(client)
+          setLoadingProducts(true)
+          const products = await getClientProducts(client.email)
+          setProducts(products)
+          setLoadingProducts(false)
+
+          // If product is specified, navigate to photos
+          if (productParam) {
+            const product = products.find(p => p.produto === productParam)
+            if (product) {
+              setSelectedProduct(productParam)
+              setLoadingPhotos(true)
+              const photos = await getProductPhotos(client.email, productParam)
+              setPhotos(photos)
+              setLoadingPhotos(false)
+            }
+          }
+        }
+        // Clear URL parameters after navigation
+        window.history.replaceState({}, '', '/manager')
+      }
     }
     init()
   }, [navigate])

@@ -223,7 +223,8 @@ export default function Upload() {
         }
       }
 
-      // Send webhook with total photos count
+      // Send webhook with album URL
+      const albumUrl = `https://fotocity.paulopina.com/manager?client=${encodeURIComponent(clientId)}&product=${encodeURIComponent(productId)}`
       try {
         await fetch(WEBHOOK_URL, {
           method: 'POST',
@@ -234,8 +235,7 @@ export default function Upload() {
             email: email.trim(),
             telefone: whats.trim(),
             numero_fotos: uploadedCount,
-            imagens_unicas: files.length,
-            apiBase: API_BASE,
+            url_album: albumUrl,
           }),
         })
       } catch {
