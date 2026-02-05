@@ -290,6 +290,12 @@ async function getPhotoFile(env: Env, request: Request, key: string): Promise<Re
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
 
+  // Add CORS headers for cross-origin fetch with credentials
+  const corsHeaders = getCorsHeaders(request);
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    headers.set(key, value);
+  }
+
   return new Response(object.body, { headers });
 }
 
