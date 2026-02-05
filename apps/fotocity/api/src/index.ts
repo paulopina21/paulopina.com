@@ -1,9 +1,17 @@
 export interface Env {
   SESSIONS: KVNamespace;
   PHOTOS?: R2Bucket;
+  CLIENT_META: KVNamespace; // Store client metadata (name, phone)
   APP_NAME: string;
   AUTH_USER: string;
   AUTH_PASS: string;
+}
+
+interface ClientMeta {
+  nome: string;
+  telefone: string;
+  email: string;
+  updatedAt: number;
 }
 
 function getCorsHeaders(request: Request) {
@@ -55,6 +63,29 @@ function getSessionIdFromRequest(request: Request): string | null {
 // Cookie configuration for cross-subdomain auth
 function getSessionCookie(sessionId: string, maxAge: number): string {
   return `session=${sessionId}; Path=/; Domain=.paulopina.com; HttpOnly; Secure; SameSite=None; Max-Age=${maxAge}`;
+}
+
+// Client metadata functions
+async function saveClientMeta(env: Env, email: string, nome: string, telefone: string): Promise<void> {
+  if (!env.CLIENT_META) return;
+  const meta: ClientMeta = { nome, telefone, email, updatedAt: Date.now() };
+  await env.CLIENT_META.put(email, JSON.stringify(meta));
+}
+
+async function getClientMeta(env: Env, email: string): Promise<ClientMeta | null> {
+  if (!env.CLIENT_META) return null;
+  const data = await env.CLIENT_META.get(email);
+  if (!data) return null;
+  try {
+    return JSON.parse(data) as ClientMeta;
+  } catch {
+    return null;
+  }
+}
+
+async function deleteClientMeta(env: Env, email: string): Promise<void> {
+  if (!env.CLIENT_META) return;
+  await env.CLIENT_META.delete(email);
 }
 
 // Photo storage functions (R2 when available, otherwise returns instructions)
@@ -138,7 +169,32 @@ async function deleteAllPhotos(
   return { status: 'OK' };
 }
 
-async function listClients(env: Env): Promise<{ nome: string; data: number }[]> {
+async function deleteClient(env: Env, clientId: string): Promise<{ status: string; deleted: number }> {
+  if (!env.PHOTOS) {
+    return { status: 'ERROR', deleted: 0 };
+  }
+
+  const prefix = `${clientId}/`;
+  let deleted = 0;
+  let cursor: string | undefined;
+
+  // Delete all photos in batches (R2 list returns max 1000 at a time)
+  do {
+    const listed = await env.PHOTOS.list({ prefix, cursor });
+    for (const obj of listed.objects) {
+      await env.PHOTOS.delete(obj.key);
+      deleted++;
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+
+  // Delete client metadata
+  await deleteClientMeta(env, clientId);
+
+  return { status: 'OK', deleted };
+}
+
+async function listClients(env: Env): Promise<{ email: string; nome: string; telefone: string; data: number }[]> {
   if (!env.PHOTOS) {
     return [];
   }
@@ -149,18 +205,29 @@ async function listClients(env: Env): Promise<{ nome: string; data: number }[]> 
   for (const obj of listed.objects) {
     const parts = obj.key.split('/');
     if (parts.length >= 1) {
-      const clientName = parts[0];
+      const clientEmail = parts[0];
       const uploadTime = obj.uploaded.getTime();
-      const existing = clientMap.get(clientName) || 0;
+      const existing = clientMap.get(clientEmail) || 0;
       if (uploadTime > existing) {
-        clientMap.set(clientName, uploadTime);
+        clientMap.set(clientEmail, uploadTime);
       }
     }
   }
 
-  return Array.from(clientMap.entries())
-    .map(([nome, data]) => ({ nome, data }))
-    .sort((a, b) => b.data - a.data);
+  // Get metadata for each client
+  const clients = await Promise.all(
+    Array.from(clientMap.entries()).map(async ([email, data]) => {
+      const meta = await getClientMeta(env, email);
+      return {
+        email,
+        nome: meta?.nome || '',
+        telefone: meta?.telefone || '',
+        data,
+      };
+    })
+  );
+
+  return clients.sort((a, b) => b.data - a.data);
 }
 
 async function listClientProducts(env: Env, clientId: string): Promise<{ produto: string; data: number; qtd: number }[]> {
@@ -293,8 +360,27 @@ export default {
         if (!clientId || !productId || !file) {
           return jsonResponse(request, { status: 'ERROR', message: 'Missing parameters' }, 400);
         }
+
+        // Save client metadata if provided
+        const nome = formData.get('nome') as string;
+        const telefone = formData.get('telefone') as string;
+        if (nome || telefone) {
+          await saveClientMeta(env, clientId, nome || '', telefone || '');
+        }
+
         const result = await uploadPhoto(env, clientId, productId, file);
         return jsonResponse(request, result);
+      }
+
+      // Save client metadata
+      if (action === 'save_client_meta') {
+        const nome = formData.get('nome') as string;
+        const telefone = formData.get('telefone') as string;
+        if (!clientId) {
+          return jsonResponse(request, { status: 'ERROR', message: 'Missing client ID' }, 400);
+        }
+        await saveClientMeta(env, clientId, nome || '', telefone || '');
+        return jsonResponse(request, { status: 'OK' });
       }
 
       if (action === 'delete_image') {
@@ -357,13 +443,31 @@ export default {
       }
 
       // List photos for a specific product
-      if (path.includes('/products/') && path.endsWith('/photos')) {
+      if (path.includes('/products/') && path.endsWith('/photos') && method === 'GET') {
         const match = path.match(/\/api\/admin\/clients\/(.+)\/products\/(.+)\/photos/);
         if (match) {
           const clientId = decodeURIComponent(match[1]);
           const productId = decodeURIComponent(match[2]);
           const photos = await listProductPhotos(env, clientId, productId);
           return jsonResponse(request, { status: 'ok', photos });
+        }
+      }
+
+      // Delete a client (all products and photos)
+      if (path.startsWith('/api/admin/clients/') && method === 'DELETE' && !path.includes('/products/')) {
+        const clientId = decodeURIComponent(path.replace('/api/admin/clients/', ''));
+        const result = await deleteClient(env, clientId);
+        return jsonResponse(request, result);
+      }
+
+      // Delete a product (all photos in that product)
+      if (path.includes('/products/') && method === 'DELETE' && !path.endsWith('/photos')) {
+        const match = path.match(/\/api\/admin\/clients\/(.+)\/products\/(.+)$/);
+        if (match) {
+          const clientId = decodeURIComponent(match[1]);
+          const productId = decodeURIComponent(match[2]);
+          const result = await deleteAllPhotos(env, clientId, productId);
+          return jsonResponse(request, result);
         }
       }
     }

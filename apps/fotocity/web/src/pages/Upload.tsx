@@ -209,6 +209,11 @@ export default function Upload() {
             formData.append('copy_number', String(c + 1))
             formData.append('total_copies', String(copies))
           }
+          // Save client metadata on first upload
+          if (uploadedCount === 0) {
+            formData.append('nome', nome.trim())
+            formData.append('telefone', whats.trim())
+          }
 
           await fetch(`${API_BASE}/api/photos`, {
             method: 'POST',

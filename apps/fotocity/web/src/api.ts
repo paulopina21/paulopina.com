@@ -47,7 +47,14 @@ export async function uploadPhoto(
   return res.json();
 }
 
-export async function getClients(): Promise<{ nome: string; data: number }[]> {
+export interface Client {
+  email: string;
+  nome: string;
+  telefone: string;
+  data: number;
+}
+
+export async function getClients(): Promise<Client[]> {
   try {
     const res = await fetch(`${API_BASE}/api/admin/clients`, { credentials: 'include' });
     const data = await res.json();
@@ -74,5 +81,31 @@ export async function getProductPhotos(clientId: string, productId: string): Pro
     return data.photos || [];
   } catch {
     return [];
+  }
+}
+
+export async function deleteClient(clientId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/clients/${encodeURIComponent(clientId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    const data = await res.json();
+    return data.status === 'OK';
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteProduct(clientId: string, productId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/clients/${encodeURIComponent(clientId)}/products/${encodeURIComponent(productId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    const data = await res.json();
+    return data.status === 'OK';
+  } catch {
+    return false;
   }
 }

@@ -27,3 +27,8 @@ bucket_name = "fotocity-photos"
 [[kv_namespaces]]
 binding = "SESSIONS"
 id = "716516f97f914f3aac5b37c5300ea3b0"
+
+# KV para metadados de clientes (nome, telefone)
+[[kv_namespaces]]
+binding = "CLIENT_META"
+id = "10de2ca817884387b1ae4b7224b19f69"
