@@ -3,9 +3,13 @@ import { PhotoEditor, PhotoEditState, renderPhoto, getDefaultEditState } from '.
 import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
 import { processImageFile, isHeicFile } from '../utils/imageUtils'
 
+// Version for debugging
+const APP_VERSION = '1.0.5'
+
 // API base - usa a API do Worker (R2) em produção ou proxy local em dev
 const API_BASE = import.meta.env.VITE_API_URL || ''
 const WEBHOOK_URL = 'https://n8n.fotocity.com.br/webhook/envio-fotos'
+const WHATSAPP_SUPPORT = '5511957323619'
 
 function formatPhoneBR(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -31,6 +35,7 @@ export default function Upload() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, status: '' })
   const [success, setSuccess] = useState(false)
 
   const [photoSize, setPhotoSize] = useState('')
@@ -199,6 +204,7 @@ export default function Upload() {
     if (!canSubmit || uploading || !sizeInfo) return
 
     setUploading(true)
+    setUploadProgress({ current: 0, total: files.length, status: 'Preparando...' })
 
     const clientId = email.trim()
     const productId = getProductId()
@@ -211,6 +217,13 @@ export default function Upload() {
         const copies = editState?.copies || 1
         totalCopies += copies
 
+        // Update progress - processing
+        setUploadProgress({
+          current: i + 1,
+          total: files.length,
+          status: `Processando foto ${i + 1} de ${files.length}...`
+        })
+
         // ALWAYS render photos to correct print size with upscaling if needed
         // Use existing edit state or create default one
         const isRectangular = sizeInfo.orientation !== 'square' && !sizeInfo.isPolaroid
@@ -218,6 +231,13 @@ export default function Upload() {
 
         const photoBlob = await renderPhoto(previews[i], finalEditState, sizeInfo, true)
         const fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
+
+        // Update progress - uploading
+        setUploadProgress({
+          current: i + 1,
+          total: files.length,
+          status: `Enviando foto ${i + 1} de ${files.length}...`
+        })
 
         // Upload file once with copies metadata
         const formData = new FormData()
@@ -316,6 +336,22 @@ export default function Upload() {
           <div className="download-modal">
             <div className="download-spinner"></div>
             <p>{processingStatus || 'Processando...'}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Upload progress overlay */}
+      {uploading && (
+        <div className="download-overlay">
+          <div className="download-modal">
+            <div className="download-spinner"></div>
+            <h3 style={{ marginBottom: 10 }}>Enviando fotos...</h3>
+            <p>{uploadProgress.status}</p>
+            {uploadProgress.total > 0 && (
+              <div style={{ marginTop: 10, fontSize: 12, color: '#666' }}>
+                {uploadProgress.current} / {uploadProgress.total}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -468,7 +504,7 @@ export default function Upload() {
               <i className="fas fa-check-circle"></i> CONCLUIR ENVIO DE FOTOS
             </button>
             <a
-              href="https://wa.me/5511999999999"
+              href={`https://wa.me/${WHATSAPP_SUPPORT}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn whats"
@@ -545,6 +581,20 @@ export default function Upload() {
             </button>
           </div>
         )}
+
+        {/* Version footer */}
+        <div style={{ textAlign: 'center', marginTop: 30, padding: 10, color: '#999', fontSize: 12 }}>
+          <span>v{APP_VERSION}</span>
+          <span style={{ margin: '0 10px' }}>|</span>
+          <a
+            href={`https://wa.me/${WHATSAPP_SUPPORT}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#25d366', textDecoration: 'none' }}
+          >
+            <i className="fab fa-whatsapp"></i> Suporte
+          </a>
+        </div>
       </div>
     </div>
   )
