@@ -27,7 +27,7 @@
     "fotocity:api:dev": "npm --workspace apps/fotocity/api run dev",
     "fotocity:api:deploy": "npm --workspace apps/fotocity/api run deploy",
     "fotocity:web:build": "npm --workspace apps/fotocity/web run build",
-    "fotocity:web:deploy": "wrangler pages deploy apps/fotocity/web/dist --project-name=fotocity"
+    "fotocity:web:deploy": "wrangler pages deploy apps/fotocity/web/dist --project-name=fotocity --branch=main"
   }
 }
 

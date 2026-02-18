@@ -54,6 +54,12 @@ async function deleteSession(env: Env, sessionId: string): Promise<void> {
 }
 
 function getSessionIdFromRequest(request: Request): string | null {
+  // Check Authorization header first (token-based, works cross-domain)
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+  // Fallback to cookie (works same-domain)
   const cookie = request.headers.get('Cookie');
   if (!cookie) return null;
   const match = cookie.match(/session=([^;]+)/);
@@ -334,7 +340,7 @@ export default {
 
       if (usuario === env.AUTH_USER && senha === env.AUTH_PASS) {
         const sessionId = await createSession(env);
-        return new Response(JSON.stringify({ status: 'ok' }), {
+        return new Response(JSON.stringify({ status: 'ok', token: sessionId }), {
           headers: {
             'Content-Type': 'application/json',
             'Set-Cookie': getSessionCookie(sessionId, 86400),
