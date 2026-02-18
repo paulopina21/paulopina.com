@@ -37,6 +37,12 @@ export const PHOTO_SIZE_INFO: Record<string, PhotoSizeInfo> = {
     widthCm: 5, heightCm: 7,
     widthPx: cmToPixels(5), heightPx: cmToPixels(7),
     aspectRatio: 5 / 7, orientation: 'portrait', isPolaroid: false,
+    // Print on 8x10 paper with red border for cutting (printer minimum is 8x10)
+    printCanvas: {
+      widthPx: cmToPixels(8),
+      heightPx: cmToPixels(10),
+      borderColor: '#FF0000',
+    },
   },
   'Mini Polaroid 6x8': {
     name: 'Mini Polaroid 6x8',
