@@ -63,6 +63,13 @@ export default function PhotoEditor({
       height = photoSize + borderTop + borderBottom
     }
 
+    // Handle print canvas (e.g., 5x7 on 8x10 paper)
+    if (sizeInfo.printCanvas) {
+      const isLandscape = isRectangular && state.orientation === 'landscape'
+      width = isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx
+      height = isLandscape ? sizeInfo.printCanvas.widthPx : sizeInfo.printCanvas.heightPx
+    }
+
     const scale = PREVIEW_MAX_WIDTH / width
     return {
       scale,

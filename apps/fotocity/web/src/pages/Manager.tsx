@@ -823,9 +823,14 @@ export default function Manager() {
                       alt={`Foto ${index + 1}`}
                       onLoad={(e) => {
                         const img = e.target as HTMLImageElement
-                        const resEl = img.parentElement?.querySelector('.photo-resolution')
-                        if (resEl) {
-                          resEl.textContent = `${img.naturalWidth} x ${img.naturalHeight}px`
+                        const parent = img.parentElement
+                        if (parent) {
+                          // Set aspect ratio from actual image dimensions
+                          parent.style.aspectRatio = `${img.naturalWidth}/${img.naturalHeight}`
+                          const resEl = parent.querySelector('.photo-resolution')
+                          if (resEl) {
+                            resEl.textContent = `${img.naturalWidth} x ${img.naturalHeight}px`
+                          }
                         }
                       }}
                     />

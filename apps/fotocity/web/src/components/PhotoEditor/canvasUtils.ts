@@ -376,11 +376,12 @@ export async function renderPhoto(
   const canvas = document.createElement('canvas')
   await renderToCanvas(canvas, img, editState, sizeInfo, 1)
 
-  // If this size requires a larger print canvas (e.g., Mini Polaroid on 8x10 paper)
+  // If this size requires a larger print canvas (e.g., Mini Polaroid on 8x10 paper, 5x7 on 8x10)
   if (sizeInfo.printCanvas) {
+    const isLandscape = !sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape'
     const printCanvas = document.createElement('canvas')
-    printCanvas.width = sizeInfo.printCanvas.widthPx
-    printCanvas.height = sizeInfo.printCanvas.heightPx
+    printCanvas.width = isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx
+    printCanvas.height = isLandscape ? sizeInfo.printCanvas.widthPx : sizeInfo.printCanvas.heightPx
 
     const ctx = printCanvas.getContext('2d')
     if (ctx) {
@@ -430,14 +431,37 @@ export async function renderPreview(
   const img = await loadImage(imageSrc)
   const canvas = document.createElement('canvas')
 
-  // For landscape orientation, use height as reference for scale
-  let baseWidth = sizeInfo.widthPx
-  if (!sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape') {
+  const isLandscape = !sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape'
+
+  // Determine base width for scale - use print canvas if available
+  let baseWidth: number
+  if (sizeInfo.printCanvas) {
+    baseWidth = isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx
+  } else if (isLandscape) {
     baseWidth = sizeInfo.heightPx
+  } else {
+    baseWidth = sizeInfo.widthPx
   }
 
   const scale = maxWidth / baseWidth
   await renderToCanvas(canvas, img, editState, sizeInfo, scale)
+
+  // Apply print canvas border if needed
+  if (sizeInfo.printCanvas) {
+    const printCanvas = document.createElement('canvas')
+    printCanvas.width = Math.round((isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx) * scale)
+    printCanvas.height = Math.round((isLandscape ? sizeInfo.printCanvas.widthPx : sizeInfo.printCanvas.heightPx) * scale)
+
+    const ctx = printCanvas.getContext('2d')
+    if (ctx) {
+      ctx.fillStyle = sizeInfo.printCanvas.borderColor
+      ctx.fillRect(0, 0, printCanvas.width, printCanvas.height)
+      const offsetX = Math.round((printCanvas.width - canvas.width) / 2)
+      const offsetY = Math.round((printCanvas.height - canvas.height) / 2)
+      ctx.drawImage(canvas, offsetX, offsetY)
+    }
+    return printCanvas.toDataURL('image/jpeg', 0.85)
+  }
 
   return canvas.toDataURL('image/jpeg', 0.85)
 }
@@ -452,5 +476,25 @@ export async function drawPreviewOnCanvas(
   sizeInfo: PhotoSizeInfo,
   scale: number
 ): Promise<void> {
-  await renderToCanvas(canvas, img, editState, sizeInfo, scale)
+  if (sizeInfo.printCanvas) {
+    // Render photo to temp canvas first
+    const tempCanvas = document.createElement('canvas')
+    await renderToCanvas(tempCanvas, img, editState, sizeInfo, scale)
+
+    // Apply print canvas with border
+    const isLandscape = !sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape'
+    canvas.width = Math.round((isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx) * scale)
+    canvas.height = Math.round((isLandscape ? sizeInfo.printCanvas.widthPx : sizeInfo.printCanvas.heightPx) * scale)
+
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.fillStyle = sizeInfo.printCanvas.borderColor
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      const offsetX = Math.round((canvas.width - tempCanvas.width) / 2)
+      const offsetY = Math.round((canvas.height - tempCanvas.height) / 2)
+      ctx.drawImage(tempCanvas, offsetX, offsetY)
+    }
+  } else {
+    await renderToCanvas(canvas, img, editState, sizeInfo, scale)
+  }
 }
