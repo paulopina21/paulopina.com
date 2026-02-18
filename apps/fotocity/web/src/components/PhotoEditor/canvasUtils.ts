@@ -421,6 +421,7 @@ export async function renderPhoto(
 
 /**
  * Render a preview image (smaller size for thumbnails)
+ * Note: printCanvas border is NOT applied here - only in renderPhoto for the final upload
  */
 export async function renderPreview(
   imageSrc: string,
@@ -431,43 +432,21 @@ export async function renderPreview(
   const img = await loadImage(imageSrc)
   const canvas = document.createElement('canvas')
 
-  const isLandscape = !sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape'
-
-  // Determine base width for scale - use print canvas if available
-  let baseWidth: number
-  if (sizeInfo.printCanvas) {
-    baseWidth = isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx
-  } else if (isLandscape) {
+  // For landscape orientation, use height as reference for scale
+  let baseWidth = sizeInfo.widthPx
+  if (!sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape') {
     baseWidth = sizeInfo.heightPx
-  } else {
-    baseWidth = sizeInfo.widthPx
   }
 
   const scale = maxWidth / baseWidth
   await renderToCanvas(canvas, img, editState, sizeInfo, scale)
-
-  // Apply print canvas border if needed
-  if (sizeInfo.printCanvas) {
-    const printCanvas = document.createElement('canvas')
-    printCanvas.width = Math.round((isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx) * scale)
-    printCanvas.height = Math.round((isLandscape ? sizeInfo.printCanvas.widthPx : sizeInfo.printCanvas.heightPx) * scale)
-
-    const ctx = printCanvas.getContext('2d')
-    if (ctx) {
-      ctx.fillStyle = sizeInfo.printCanvas.borderColor
-      ctx.fillRect(0, 0, printCanvas.width, printCanvas.height)
-      const offsetX = Math.round((printCanvas.width - canvas.width) / 2)
-      const offsetY = Math.round((printCanvas.height - canvas.height) / 2)
-      ctx.drawImage(canvas, offsetX, offsetY)
-    }
-    return printCanvas.toDataURL('image/jpeg', 0.85)
-  }
 
   return canvas.toDataURL('image/jpeg', 0.85)
 }
 
 /**
  * Draw preview on an existing canvas (for interactive preview)
+ * Note: printCanvas border is NOT applied here - only in renderPhoto for the final upload
  */
 export async function drawPreviewOnCanvas(
   canvas: HTMLCanvasElement,
@@ -476,25 +455,5 @@ export async function drawPreviewOnCanvas(
   sizeInfo: PhotoSizeInfo,
   scale: number
 ): Promise<void> {
-  if (sizeInfo.printCanvas) {
-    // Render photo to temp canvas first
-    const tempCanvas = document.createElement('canvas')
-    await renderToCanvas(tempCanvas, img, editState, sizeInfo, scale)
-
-    // Apply print canvas with border
-    const isLandscape = !sizeInfo.isPolaroid && sizeInfo.orientation !== 'square' && editState.orientation === 'landscape'
-    canvas.width = Math.round((isLandscape ? sizeInfo.printCanvas.heightPx : sizeInfo.printCanvas.widthPx) * scale)
-    canvas.height = Math.round((isLandscape ? sizeInfo.printCanvas.widthPx : sizeInfo.printCanvas.heightPx) * scale)
-
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      ctx.fillStyle = sizeInfo.printCanvas.borderColor
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      const offsetX = Math.round((canvas.width - tempCanvas.width) / 2)
-      const offsetY = Math.round((canvas.height - tempCanvas.height) / 2)
-      ctx.drawImage(tempCanvas, offsetX, offsetY)
-    }
-  } else {
-    await renderToCanvas(canvas, img, editState, sizeInfo, scale)
-  }
+  await renderToCanvas(canvas, img, editState, sizeInfo, scale)
 }
