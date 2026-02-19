@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   PhotoEditorProps,
   PhotoEditState,
@@ -10,6 +10,7 @@ import {
   PhotoOrientation,
 } from './types'
 import { renderPreview, loadImage, drawPreviewOnCanvas } from './canvasUtils'
+import { cmToPixels } from '../../utils/photoSizes'
 
 // Preview canvas max width
 const PREVIEW_MAX_WIDTH = 300
@@ -74,6 +75,51 @@ export default function PhotoEditor({
   const previewScale = previewDims.scale
   const previewWidth = previewDims.width
   const previewHeight = previewDims.height
+
+  // Calculate minimum zoom for contain mode (image fits entirely in frame)
+  const minZoom = useMemo(() => {
+    if (!img) return 1
+
+    let photoWidth: number, photoHeight: number
+
+    if (sizeInfo.isPolaroid) {
+      if (state.polaroidBorder === 'full') {
+        const borderSide = sizeInfo.widthPx * 0.06
+        photoWidth = sizeInfo.widthPx - borderSide * 2
+        photoHeight = sizeInfo.widthPx
+      } else {
+        photoWidth = sizeInfo.photoAreaPx!.width
+        photoHeight = sizeInfo.photoAreaPx!.height
+      }
+    } else {
+      photoWidth = sizeInfo.widthPx
+      photoHeight = sizeInfo.heightPx
+
+      if (sizeInfo.orientation !== 'square' && state.orientation === 'landscape') {
+        photoWidth = sizeInfo.heightPx
+        photoHeight = sizeInfo.widthPx
+      }
+
+      if (state.whiteBorder) {
+        const borderCm = sizeInfo.widthCm >= 20 ? 0.5 : 0.4
+        const borderPx = cmToPixels(borderCm)
+        photoWidth -= borderPx * 2
+        photoHeight -= borderPx * 2
+      }
+    }
+
+    const imgAspect = img.naturalWidth / img.naturalHeight
+    const targetAspect = photoWidth / photoHeight
+
+    if (Math.abs(imgAspect - targetAspect) < 0.01) return 1
+
+    const raw = imgAspect > targetAspect
+      ? targetAspect / imgAspect
+      : imgAspect / targetAspect
+
+    // Round down to nearest 0.05 to align with slider steps
+    return Math.floor(raw * 20) / 20
+  }, [img, sizeInfo, state.orientation, state.whiteBorder, state.polaroidBorder])
 
   // Load fonts for Polaroid
   useEffect(() => {
@@ -180,11 +226,11 @@ export default function PhotoEditor({
     } else if (e.touches.length === 2 && lastTouchDistance !== null) {
       const currentDistance = getTouchDistance(e.touches)
       const scale = currentDistance / lastTouchDistance
-      const newZoom = Math.max(1, Math.min(3, initialZoom * scale))
+      const newZoom = Math.max(minZoom, Math.min(3, initialZoom * scale))
 
       handleStateChange({ zoom: newZoom })
     }
-  }, [isDragging, dragStart, initialPan, state.zoom, handleStateChange, lastTouchDistance, initialZoom])
+  }, [isDragging, dragStart, initialPan, state.zoom, handleStateChange, lastTouchDistance, initialZoom, minZoom])
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false)
@@ -195,9 +241,9 @@ export default function PhotoEditor({
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.1 : 0.1
-    const newZoom = Math.max(1, Math.min(3, state.zoom + delta))
+    const newZoom = Math.max(minZoom, Math.min(3, state.zoom + delta))
     handleStateChange({ zoom: newZoom })
-  }, [state.zoom, handleStateChange])
+  }, [state.zoom, handleStateChange, minZoom])
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -274,11 +320,11 @@ export default function PhotoEditor({
 
             {/* Zoom control */}
             <div className="control-section">
-              <label>Zoom: {Math.round(state.zoom * 100)}%</label>
+              <label>Zoom: {Math.round((state.zoom - 1) * 100)}%</label>
               <div className="zoom-slider-container">
                 <input
                   type="range"
-                  min="1"
+                  min={minZoom}
                   max="3"
                   step="0.05"
                   value={state.zoom}
@@ -288,7 +334,7 @@ export default function PhotoEditor({
                   type="button"
                   className="reset-btn"
                   onClick={handleResetZoom}
-                  title="Resetar posição"
+                  title="Redefinir zoom (0%)"
                 >
                   <i className="fas fa-undo"></i>
                 </button>
