@@ -1,5 +1,5 @@
 import { PhotoEditState, FilterOption } from './types'
-import { PhotoSizeInfo } from '../../utils/photoSizes'
+import { PhotoSizeInfo, cmToPixels } from '../../utils/photoSizes'
 import { upscaleForPrint, checkResolutionQuality } from '../../utils/imageUtils'
 
 interface ImagePosition {
@@ -312,25 +312,39 @@ async function renderToCanvas(
     canvas.width = width
     canvas.height = height
 
+    // Fill with white background
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+
+    // Calculate photo area (reduced by 4mm border on each side if enabled)
+    const borderPx = editState.whiteBorder ? Math.round(cmToPixels(0.4) * scale) : 0
+    const photoWidth = width - borderPx * 2
+    const photoHeight = height - borderPx * 2
+
     const pos = calculateImagePosition(
       img.naturalWidth,
       img.naturalHeight,
       editState.zoom,
       editState.panX,
       editState.panY,
-      width,
-      height
+      photoWidth,
+      photoHeight
     )
 
-    // Fill with white background (in case of gaps)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, width, height)
+    // Clip to photo area and draw
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(borderPx, borderPx, photoWidth, photoHeight)
+    ctx.clip()
 
-    // Draw image
-    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, pos.dx, pos.dy, pos.dw, pos.dh)
+    ctx.drawImage(
+      img, 0, 0, img.naturalWidth, img.naturalHeight,
+      borderPx + pos.dx, borderPx + pos.dy, pos.dw, pos.dh
+    )
 
     // Apply filter
     applyFilter(ctx, canvas, editState.filter)
+    ctx.restore()
   }
 }
 

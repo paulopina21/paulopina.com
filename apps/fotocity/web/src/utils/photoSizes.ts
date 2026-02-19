@@ -64,6 +64,12 @@ export const PHOTO_SIZE_INFO: Record<string, PhotoSizeInfo> = {
     widthPx: cmToPixels(8), heightPx: cmToPixels(8),
     aspectRatio: 1, orientation: 'square', isPolaroid: false,
   },
+  '8x10': {
+    name: '8x10',
+    widthCm: 8, heightCm: 10,
+    widthPx: cmToPixels(8), heightPx: cmToPixels(10),
+    aspectRatio: 8 / 10, orientation: 'portrait', isPolaroid: false,
+  },
   'Polaroid 8x10': {
     name: 'Polaroid 8x10',
     widthCm: 8, heightCm: 10,
@@ -273,6 +279,7 @@ export const PHOTO_SIZES = [
   '5x7',
   'Mini Polaroid 6x8',
   '8x8',
+  '8x10',
   'Polaroid 8x10',
   '9x12',
   '10x10',

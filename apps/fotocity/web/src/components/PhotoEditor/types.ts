@@ -25,6 +25,8 @@ export interface PhotoEditState {
   caption?: string
   font?: FontOption
   color?: ColorOption
+  // White border for normal photos (4mm on all sides)
+  whiteBorder?: boolean
 }
 
 export interface FilterOption {
@@ -64,10 +66,11 @@ export function getDefaultEditState(isPolaroid: boolean, isRectangular: boolean 
     filter: FILTERS[0],
     copies: 1,
     orientation: isRectangular ? 'portrait' : undefined,
-    polaroidBorder: isPolaroid ? 'bottom' : undefined,
+    polaroidBorder: isPolaroid ? 'full' : undefined,
     caption: isPolaroid ? '' : undefined,
     font: isPolaroid ? FONTS[0] : undefined,
     color: isPolaroid ? COLORS[0] : undefined,
+    whiteBorder: isPolaroid ? undefined : false,
   }
 }
 

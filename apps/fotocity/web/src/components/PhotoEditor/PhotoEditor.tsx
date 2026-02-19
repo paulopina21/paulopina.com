@@ -7,7 +7,6 @@ import {
   FONTS,
   COLORS,
   loadFonts,
-  PolaroidBorderStyle,
   PhotoOrientation,
 } from './types'
 import { renderPreview, loadImage, drawPreviewOnCanvas } from './canvasUtils'
@@ -331,34 +330,33 @@ export default function PhotoEditor({
               </div>
             )}
 
-            {/* Polaroid border style */}
-            {sizeInfo.isPolaroid && (
+            {/* White border toggle for normal photos */}
+            {!sizeInfo.isPolaroid && (
               <div className="control-section">
-                <label>Estilo da Borda</label>
-                <div className="border-style-buttons">
+                <label>Borda</label>
+                <div className="orientation-buttons">
                   <button
                     type="button"
-                    className={`border-style-btn ${state.polaroidBorder === 'bottom' ? 'active' : ''}`}
-                    onClick={() => handleStateChange({ polaroidBorder: 'bottom' as PolaroidBorderStyle })}
-                    title="Borda só embaixo"
+                    className={`orientation-btn ${!state.whiteBorder ? 'active' : ''}`}
+                    onClick={() => handleStateChange({ whiteBorder: false })}
+                    title="Sem borda"
                   >
-                    <svg viewBox="0 0 24 30" className="border-style-icon">
-                      <rect x="0" y="0" width="24" height="24" fill="#ddd"/>
-                      <rect x="0" y="24" width="24" height="6" fill="#fff"/>
+                    <svg viewBox="0 0 28 28" className="orientation-icon">
+                      <rect x="1" y="1" width="26" height="26" fill="#ccc" stroke="currentColor" strokeWidth="1"/>
                     </svg>
-                    <span>Clássico</span>
+                    <span>Sem Borda</span>
                   </button>
                   <button
                     type="button"
-                    className={`border-style-btn ${state.polaroidBorder === 'full' ? 'active' : ''}`}
-                    onClick={() => handleStateChange({ polaroidBorder: 'full' as PolaroidBorderStyle })}
-                    title="Borda completa"
+                    className={`orientation-btn ${state.whiteBorder ? 'active' : ''}`}
+                    onClick={() => handleStateChange({ whiteBorder: true })}
+                    title="Com borda branca de 4mm"
                   >
-                    <svg viewBox="0 0 28 34" className="border-style-icon">
-                      <rect x="0" y="0" width="28" height="34" fill="#fff"/>
-                      <rect x="2" y="2" width="24" height="24" fill="#ddd"/>
+                    <svg viewBox="0 0 28 28" className="orientation-icon">
+                      <rect x="1" y="1" width="26" height="26" fill="#fff" stroke="currentColor" strokeWidth="1"/>
+                      <rect x="4" y="4" width="20" height="20" fill="#ccc"/>
                     </svg>
-                    <span>Completo</span>
+                    <span>Com Borda</span>
                   </button>
                 </div>
               </div>
