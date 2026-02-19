@@ -1670,6 +1670,50 @@ body {
   margin: 0;
 }
 
+/* Sent Photos Grid (success screen) */
+.sent-photos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 15px 0;
+}
+
+.sent-photo-item {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.sent-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sent-photo-copies {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: #1e88e5;
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.sent-photo-copies i {
+  font-size: 9px;
+}
+
 /* Link Generator */
 .link-generator-form {
   display: flex;

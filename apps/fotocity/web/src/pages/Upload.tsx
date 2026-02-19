@@ -48,6 +48,9 @@ export default function Upload() {
   const [photoPreviews, setPhotoPreviews] = useState<Map<number, string>>(new Map())
   const [editingIndex, setEditingIndex] = useState<number>(-1)
 
+  // Sent photos for success screen
+  const [sentPhotos, setSentPhotos] = useState<{ preview: string; copies: number }[]>([])
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const params = new URLSearchParams(window.location.search)
@@ -279,6 +282,12 @@ export default function Upload() {
         // Webhook errors are not critical
       }
 
+      // Save sent photos for success screen
+      setSentPhotos(previews.map((preview, i) => ({
+        preview: photoPreviews.get(i) || preview,
+        copies: photoEdits.get(i)?.copies || 1,
+      })))
+
       setSuccess(true)
       setFiles([])
       setPreviews([])
@@ -309,6 +318,25 @@ export default function Upload() {
         </div>
         <div className="upload-container">
           <div className="success-title">Fotos enviadas com sucesso!</div>
+
+          {sentPhotos.length > 0 && (
+            <>
+              <div className="image-count" style={{ marginBottom: 10 }}>
+                {sentPhotos.length} {sentPhotos.length === 1 ? 'imagem' : 'imagens'} enviada{sentPhotos.length === 1 ? '' : 's'}
+                {' '}({sentPhotos.reduce((sum, p) => sum + p.copies, 0)} {sentPhotos.reduce((sum, p) => sum + p.copies, 0) === 1 ? 'impressão' : 'impressões'})
+              </div>
+              <div className="sent-photos-grid">
+                {sentPhotos.map((photo, i) => (
+                  <div key={i} className="sent-photo-item">
+                    <img src={photo.preview} alt={`Foto ${i + 1}`} />
+                    <div className="sent-photo-copies">
+                      <i className="fas fa-copy"></i> {photo.copies}x
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     )
