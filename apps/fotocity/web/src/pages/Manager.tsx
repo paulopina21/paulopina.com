@@ -79,7 +79,9 @@ async function downloadAsZip(
     if (!response.ok) continue
     const blob = await response.blob()
     const ext = photo.key.split('.').pop() || 'jpg'
-    zip.file(`foto_${i + 1}.${ext}`, blob)
+    const copies = photo.copies || 1
+    const copiesLabel = copies === 1 ? '1 cópia' : `${copies} cópias`
+    zip.file(`Foto ${i + 1} (${copiesLabel}).${ext}`, blob)
   }
 
   const content = await zip.generateAsync({ type: 'blob' })
@@ -129,7 +131,9 @@ async function downloadClientAsZip(
       if (!response.ok) continue
       const blob = await response.blob()
       const ext = photo.key.split('.').pop() || 'jpg'
-      folder.file(`foto_${i + 1}.${ext}`, blob)
+      const copies = photo.copies || 1
+      const copiesLabel = copies === 1 ? '1 cópia' : `${copies} cópias`
+      folder.file(`Foto ${i + 1} (${copiesLabel}).${ext}`, blob)
     }
   }
 

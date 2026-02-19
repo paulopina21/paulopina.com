@@ -903,6 +903,7 @@ body {
   position: absolute;
   top: 8px;
   left: 8px;
+  bottom: auto;
   background: #1e88e5;
   color: #fff;
   padding: 4px 8px;
@@ -923,6 +924,7 @@ body {
 .photo-item.polaroid-frame .copies-badge {
   top: 14px;
   left: 14px;
+  bottom: auto;
 }
 
 @media (max-width: 600px) {
