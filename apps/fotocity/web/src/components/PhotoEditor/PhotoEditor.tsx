@@ -3,7 +3,9 @@ import {
   PhotoEditorProps,
   PhotoEditState,
   getDefaultEditState,
-  FILTERS,
+  FILTER_NONE,
+  FILTERS_CLASSIC,
+  FILTERS_INSTAGRAM,
   FONTS,
   COLORS,
   loadFonts,
@@ -411,21 +413,52 @@ export default function PhotoEditor({
             {/* Filter control */}
             <div className="control-section">
               <label>Filtro</label>
-              <div className="filter-buttons">
-                {FILTERS.map(f => (
-                  <button
-                    key={f.name}
-                    type="button"
-                    className={`filter-btn ${state.filter.name === f.name ? 'active' : ''}`}
-                    onClick={() => handleStateChange({ filter: f })}
-                  >
-                    <div
-                      className="filter-preview"
-                      style={{ filter: f.css }}
-                    />
-                    <span>{f.displayName}</span>
-                  </button>
-                ))}
+              <div className="filter-groups">
+                <div className="filter-group">
+                  <span className="filter-group-label">Sem Filtro</span>
+                  <div className="filter-buttons">
+                    <button
+                      type="button"
+                      className={`filter-btn ${state.filter.name === FILTER_NONE.name ? 'active' : ''}`}
+                      onClick={() => handleStateChange({ filter: FILTER_NONE })}
+                    >
+                      <div className="filter-preview filter-preview-none" />
+                      <span>{FILTER_NONE.displayName}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="filter-group">
+                  <span className="filter-group-label">Clássicos</span>
+                  <div className="filter-buttons">
+                    {FILTERS_CLASSIC.map(f => (
+                      <button
+                        key={f.name}
+                        type="button"
+                        className={`filter-btn ${state.filter.name === f.name ? 'active' : ''}`}
+                        onClick={() => handleStateChange({ filter: f })}
+                      >
+                        <div className="filter-preview" style={{ filter: f.css }} />
+                        <span>{f.displayName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="filter-group">
+                  <span className="filter-group-label">Instagram</span>
+                  <div className="filter-buttons">
+                    {FILTERS_INSTAGRAM.map(f => (
+                      <button
+                        key={f.name}
+                        type="button"
+                        className={`filter-btn ${state.filter.name === f.name ? 'active' : ''}`}
+                        onClick={() => handleStateChange({ filter: f })}
+                      >
+                        <div className="filter-preview" style={{ filter: f.css }} />
+                        <span>{f.displayName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 

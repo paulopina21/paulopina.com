@@ -74,14 +74,16 @@ export function getDefaultEditState(isPolaroid: boolean, isRectangular: boolean 
   }
 }
 
-// Available filters
-export const FILTERS: FilterOption[] = [
-  {
-    name: 'none',
-    displayName: 'Original',
-    css: 'none',
-    apply: () => {},
-  },
+// Filter: no filter
+export const FILTER_NONE: FilterOption = {
+  name: 'none',
+  displayName: 'Original',
+  css: 'none',
+  apply: () => {},
+}
+
+// Classic filters
+export const FILTERS_CLASSIC: FilterOption[] = [
   {
     name: 'grayscale',
     displayName: 'P&B',
@@ -122,7 +124,6 @@ export const FILTERS: FilterOption[] = [
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const data = imageData.data
       for (let i = 0; i < data.length; i += 4) {
-        // Slight sepia + warm tones
         const r = data[i], g = data[i + 1], b = data[i + 2]
         data[i] = Math.min(255, r * 1.1 + 20)
         data[i + 1] = Math.min(255, g * 0.95 + 10)
@@ -132,6 +133,71 @@ export const FILTERS: FilterOption[] = [
     },
   },
 ]
+
+// Instagram-style filters
+export const FILTERS_INSTAGRAM: FilterOption[] = [
+  {
+    name: 'clarendon',
+    displayName: 'Clarendon',
+    css: 'contrast(120%) saturate(125%)',
+    apply: (ctx, canvas) => {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const data = imageData.data
+      for (let i = 0; i < data.length; i += 4) {
+        // Increase contrast
+        let r = (data[i] - 128) * 1.2 + 128
+        let g = (data[i + 1] - 128) * 1.2 + 128
+        let b = (data[i + 2] - 128) * 1.2 + 128
+        // Increase saturation
+        const gray = r * 0.299 + g * 0.587 + b * 0.114
+        data[i] = Math.min(255, Math.max(0, gray + (r - gray) * 1.25))
+        data[i + 1] = Math.min(255, Math.max(0, gray + (g - gray) * 1.25))
+        data[i + 2] = Math.min(255, Math.max(0, gray + (b - gray) * 1.25))
+      }
+      ctx.putImageData(imageData, 0, 0)
+    },
+  },
+  {
+    name: 'juno',
+    displayName: 'Juno',
+    css: 'contrast(110%) brightness(110%) saturate(140%)',
+    apply: (ctx, canvas) => {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const data = imageData.data
+      for (let i = 0; i < data.length; i += 4) {
+        // Warm tones boost
+        let r = Math.min(255, data[i] * 1.1 + 10)
+        let g = Math.min(255, data[i + 1] * 1.05 + 5)
+        let b = Math.min(255, data[i + 2] * 0.9)
+        // Increase saturation
+        const gray = r * 0.299 + g * 0.587 + b * 0.114
+        data[i] = Math.min(255, Math.max(0, gray + (r - gray) * 1.3))
+        data[i + 1] = Math.min(255, Math.max(0, gray + (g - gray) * 1.3))
+        data[i + 2] = Math.min(255, Math.max(0, gray + (b - gray) * 1.3))
+      }
+      ctx.putImageData(imageData, 0, 0)
+    },
+  },
+  {
+    name: 'lark',
+    displayName: 'Lark',
+    css: 'brightness(110%) contrast(90%) saturate(90%)',
+    apply: (ctx, canvas) => {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const data = imageData.data
+      for (let i = 0; i < data.length; i += 4) {
+        // Brighten, desaturate reds, boost greens/blues
+        data[i] = Math.min(255, Math.max(0, data[i] * 0.9 + 20))
+        data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * 1.05 + 15))
+        data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * 1.1 + 15))
+      }
+      ctx.putImageData(imageData, 0, 0)
+    },
+  },
+]
+
+// All filters flat (for compatibility)
+export const FILTERS: FilterOption[] = [FILTER_NONE, ...FILTERS_CLASSIC, ...FILTERS_INSTAGRAM]
 
 // Available handwriting fonts from Google Fonts (for Polaroid)
 export const FONTS: FontOption[] = [

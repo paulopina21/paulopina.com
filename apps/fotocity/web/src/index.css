@@ -1204,6 +1204,27 @@ body {
   box-shadow: 0 0 0 2px #1e88e5;
 }
 
+/* Filter groups */
+.filter-groups {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* Filter buttons */
 .filter-buttons {
   display: flex;
@@ -1239,6 +1260,10 @@ body {
   height: 40px;
   border-radius: 4px;
   background: linear-gradient(135deg, #f5af19, #f12711);
+}
+
+.filter-preview-none {
+  background: linear-gradient(135deg, #8ec5fc, #e0c3fc, #f5af19);
 }
 
 .filter-btn span {
@@ -1670,6 +1695,10 @@ body {
   .control-row {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .filter-groups {
+    justify-content: center;
   }
 
   .filter-buttons {
