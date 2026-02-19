@@ -167,6 +167,7 @@ export default function Manager() {
   const [loadingPhotos, setLoadingPhotos] = useState(false)
 
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number>(0)
 
   // Link generator state
   const [showLinkGenerator, setShowLinkGenerator] = useState(false)
@@ -469,14 +470,18 @@ export default function Manager() {
     }
   }
 
-  const handleDownloadPhoto = async (photo: Photo, e?: React.MouseEvent) => {
+  const handleDownloadPhoto = async (photo: Photo, index?: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
     if (downloading) return
 
     setDownloading(true)
 
     try {
-      const filename = photo.key.split('/').pop() || 'photo.jpg'
+      const ext = photo.key.split('.').pop() || 'jpg'
+      const copies = photo.copies || 1
+      const copiesLabel = copies === 1 ? '1 cópia' : `${copies} cópias`
+      const num = index !== undefined ? index + 1 : 1
+      const filename = `Foto ${num} (${copiesLabel}).${ext}`
       await downloadSingleFile(`${API_BASE}${photo.url}`, filename)
     } catch (err) {
       console.error('Download error:', err)
@@ -832,7 +837,7 @@ export default function Manager() {
                   <div
                     key={photo.key}
                     className={`photo-item ${sizeInfo?.isPolaroid ? 'polaroid-frame' : ''}`}
-                    onClick={() => setLightboxPhoto(photo)}
+                    onClick={() => { setLightboxPhoto(photo); setLightboxIndex(index) }}
                   >
                     <img
                       src={`${API_BASE}${photo.url}`}
@@ -860,7 +865,7 @@ export default function Manager() {
                     </div>
                     <button
                       className="photo-download-btn"
-                      onClick={(e) => handleDownloadPhoto(photo, e)}
+                      onClick={(e) => handleDownloadPhoto(photo, index, e)}
                       title="Baixar foto"
                       disabled={downloading}
                     >
@@ -960,7 +965,7 @@ export default function Manager() {
             <div className="lightbox-actions">
               <button
                 className="btn primary"
-                onClick={() => handleDownloadPhoto(lightboxPhoto)}
+                onClick={() => handleDownloadPhoto(lightboxPhoto, lightboxIndex)}
                 disabled={downloading}
               >
                 <i className="fas fa-download"></i> Baixar
