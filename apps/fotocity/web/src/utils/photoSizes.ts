@@ -44,6 +44,20 @@ export const PHOTO_SIZE_INFO: Record<string, PhotoSizeInfo> = {
       borderColor: '#FF0000',
     },
   },
+  'Mini Polaroid 5x7': {
+    name: 'Mini Polaroid 5x7',
+    widthCm: 5, heightCm: 7,
+    widthPx: cmToPixels(5), heightPx: cmToPixels(7),
+    aspectRatio: 5 / 7, orientation: 'portrait', isPolaroid: true,
+    photoAreaPx: { width: cmToPixels(5), height: cmToPixels(5) },
+    marginPx: cmToPixels(2),
+    // Print on 8x10 paper with red border for cutting
+    printCanvas: {
+      widthPx: cmToPixels(8),
+      heightPx: cmToPixels(10),
+      borderColor: '#FF0000',
+    },
+  },
   'Mini Polaroid 6x8': {
     name: 'Mini Polaroid 6x8',
     widthCm: 6, heightCm: 8,
@@ -52,6 +66,18 @@ export const PHOTO_SIZE_INFO: Record<string, PhotoSizeInfo> = {
     photoAreaPx: { width: cmToPixels(6), height: cmToPixels(6) },
     marginPx: cmToPixels(2),
     // Print on 8x10 paper with red border for cutting
+    printCanvas: {
+      widthPx: cmToPixels(8),
+      heightPx: cmToPixels(10),
+      borderColor: '#FF0000',
+    },
+  },
+  '6x8': {
+    name: '6x8',
+    widthCm: 6, heightCm: 8,
+    widthPx: cmToPixels(6), heightPx: cmToPixels(8),
+    aspectRatio: 6 / 8, orientation: 'portrait', isPolaroid: false,
+    // Print on 8x10 paper with red border for cutting (printer minimum is 8x10)
     printCanvas: {
       widthPx: cmToPixels(8),
       heightPx: cmToPixels(10),
@@ -274,13 +300,17 @@ export function getOrientationClass(sizeStr: string | null): string {
   return info.orientation
 }
 
-// All available photo sizes
+// All available photo sizes - Polaroids first, then normal sizes
 export const PHOTO_SIZES = [
-  '5x7',
+  // Polaroid
+  'Mini Polaroid 5x7',
   'Mini Polaroid 6x8',
+  'Polaroid 8x10',
+  // Normal
+  '5x7',
+  '6x8',
   '8x8',
   '8x10',
-  'Polaroid 8x10',
   '9x12',
   '10x10',
   '10x15',
