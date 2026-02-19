@@ -316,8 +316,9 @@ async function renderToCanvas(
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
-    // Calculate photo area (reduced by 4mm border on each side if enabled)
-    const borderPx = editState.whiteBorder ? Math.round(cmToPixels(0.4) * scale) : 0
+    // Calculate photo area (reduced by border on each side if enabled: 4mm up to 15x20, 5mm for 20x20+)
+    const borderCm = sizeInfo.widthCm >= 20 ? 0.5 : 0.4
+    const borderPx = editState.whiteBorder ? Math.round(cmToPixels(borderCm) * scale) : 0
     const photoWidth = width - borderPx * 2
     const photoHeight = height - borderPx * 2
 
