@@ -50,6 +50,7 @@ export default function Upload() {
 
   // Sent photos for success screen
   const [sentPhotos, setSentPhotos] = useState<{ preview: string; copies: number }[]>([])
+  const [sentLightbox, setSentLightbox] = useState<number>(-1)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -327,7 +328,7 @@ export default function Upload() {
               </div>
               <div className="sent-photos-grid">
                 {sentPhotos.map((photo, i) => (
-                  <div key={i} className="sent-photo-item">
+                  <div key={i} className="sent-photo-item" onClick={() => setSentLightbox(i)}>
                     <img src={photo.preview} alt={`Foto ${i + 1}`} />
                     <div className="sent-photo-copies">
                       <i className="fas fa-copy"></i> {photo.copies}x
@@ -335,6 +336,25 @@ export default function Upload() {
                   </div>
                 ))}
               </div>
+
+              {sentLightbox >= 0 && (
+                <div className="lightbox" onClick={() => setSentLightbox(-1)}>
+                  <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+                    <img src={sentPhotos[sentLightbox].preview} alt={`Foto ${sentLightbox + 1}`} />
+                    {sentPhotos[sentLightbox].copies > 1 && (
+                      <div className="lightbox-copies-badge">
+                        <i className="fas fa-copy"></i> {sentPhotos[sentLightbox].copies} cópias
+                      </div>
+                    )}
+                    <div className="lightbox-actions">
+                      <button className="btn" onClick={() => setSentLightbox(-1)}>
+                        Fechar
+                      </button>
+                    </div>
+                  </div>
+                  <button className="lightbox-close" onClick={() => setSentLightbox(-1)}>&times;</button>
+                </div>
+              )}
             </>
           )}
         </div>
