@@ -54,6 +54,7 @@ export default function Upload() {
   const minImages = params.get('min') ? parseInt(params.get('min')!) : null
   const maxImages = params.get('max') ? parseInt(params.get('max')!) : null
   const defaultSize = params.get('tamanho') || ''
+  const lockedSize = params.get('tamanho') || ''
 
   // Get current selected size info
   const currentSize = photoSize || defaultSize
@@ -523,6 +524,7 @@ export default function Upload() {
                   id="photo-size"
                   value={photoSize || defaultSize}
                   onChange={(e) => setPhotoSize(e.target.value)}
+                  disabled={!!lockedSize}
                 >
                   <option value="">SELECIONE O TAMANHO</option>
                   {PHOTO_SIZES.map(size => (

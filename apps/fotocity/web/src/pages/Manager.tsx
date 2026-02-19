@@ -164,6 +164,13 @@ export default function Manager() {
 
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null)
 
+  // Link generator state
+  const [showLinkGenerator, setShowLinkGenerator] = useState(false)
+  const [linkSize, setLinkSize] = useState('')
+  const [linkMin, setLinkMin] = useState('')
+  const [linkMax, setLinkMax] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
+
   // Download state
   const [downloading, setDownloading] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 })
@@ -578,6 +585,11 @@ export default function Manager() {
                 <i className="fas fa-arrow-left"></i> Voltar
               </button>
             )}
+            {!selectedClient && (
+              <button className="btn primary" onClick={() => setShowLinkGenerator(true)}>
+                <i className="fas fa-link"></i> Gerar Link
+              </button>
+            )}
             <button className="btn danger" onClick={handleLogout}>
               <i className="fas fa-sign-out-alt"></i> Sair
             </button>
@@ -857,6 +869,79 @@ export default function Manager() {
           </>
         )}
       </div>
+
+      {/* Link Generator Modal */}
+      {showLinkGenerator && (() => {
+        const baseUrl = 'https://envios.fotocity.com.br/'
+        const queryParts: string[] = []
+        if (linkSize) queryParts.push(`tamanho=${encodeURIComponent(linkSize)}`)
+        if (linkMin) queryParts.push(`min=${linkMin}`)
+        if (linkMax) queryParts.push(`max=${linkMax}`)
+        const generatedUrl = queryParts.length > 0 ? `${baseUrl}?${queryParts.join('&')}` : baseUrl
+
+        const handleCopy = () => {
+          navigator.clipboard.writeText(generatedUrl)
+          setLinkCopied(true)
+          setTimeout(() => setLinkCopied(false), 2000)
+        }
+
+        return (
+          <div className="download-overlay" onClick={() => setShowLinkGenerator(false)}>
+            <div className="download-modal" style={{ maxWidth: 460, padding: '30px' }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ marginBottom: 20 }}>Gerar Link para Envios</h3>
+
+              <div className="link-generator-form">
+                <div className="form-item">
+                  <label>Tamanho das Fotos</label>
+                  <select value={linkSize} onChange={(e) => setLinkSize(e.target.value)}>
+                    <option value="">Qualquer tamanho</option>
+                    {PHOTO_SIZES.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="link-generator-row">
+                  <div className="form-item">
+                    <label>Mínimo de fotos</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Sem limite"
+                      value={linkMin}
+                      onChange={(e) => setLinkMin(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label>Máximo de fotos</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Sem limite"
+                      value={linkMax}
+                      onChange={(e) => setLinkMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="link-url-preview">
+                  <span className="link-url-text">{generatedUrl}</span>
+                  <button className={`link-copy-btn ${linkCopied ? 'link-copied' : ''}`} onClick={handleCopy}>
+                    <i className={`fas ${linkCopied ? 'fa-check' : 'fa-copy'}`}></i>
+                    {linkCopied ? 'Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 20, textAlign: 'center' }}>
+                <button className="btn" onClick={() => setShowLinkGenerator(false)}>
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Lightbox */}
       {lightboxPhoto && (

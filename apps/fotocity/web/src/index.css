@@ -1668,6 +1668,80 @@ body {
   margin: 0;
 }
 
+/* Link Generator */
+.link-generator-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.link-generator-form .form-item label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.link-generator-form .form-item select,
+.link-generator-form .form-item input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.link-generator-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.link-url-preview {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fafafa;
+}
+
+.link-url-text {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+  word-break: break-all;
+  user-select: all;
+  font-family: monospace;
+}
+
+.link-copy-btn {
+  padding: 8px 14px;
+  border: 1px solid #1e88e5;
+  border-radius: 6px;
+  background: #1e88e5;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.2s;
+}
+
+.link-copy-btn:hover {
+  background: #1565c0;
+}
+
+.link-copy-btn.link-copied {
+  background: #2e7d32;
+  border-color: #2e7d32;
+}
+
 /* Clickable logo in header */
 .fc-header.clickable {
   cursor: pointer;
