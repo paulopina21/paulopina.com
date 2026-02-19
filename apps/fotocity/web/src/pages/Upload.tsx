@@ -29,7 +29,7 @@ function getToday(): string {
   return `${yyyy}-${mm}-${dd}_${hh}-${nn}`
 }
 
-export default function Upload() {
+export default function Upload({ embed = false }: { embed?: boolean }) {
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
@@ -294,6 +294,11 @@ export default function Upload() {
       setPreviews([])
       setPhotoEdits(new Map())
       setPhotoPreviews(new Map())
+
+      // Notify parent window when in embed mode
+      if (embed && window.parent !== window) {
+        window.parent.postMessage('fotocity:upload-complete', '*')
+      }
     } catch (err) {
       showMessage('Erro ao enviar fotos. Tente novamente.', 'error')
     } finally {
@@ -304,19 +309,23 @@ export default function Upload() {
   if (success) {
     return (
       <div>
-        <div className="fc-topbar">
-          <div className="social-links">
-            <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
-              <i className="fab fa-instagram"></i>
-            </a>
-            <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
-              <i className="fab fa-facebook"></i>
-            </a>
-          </div>
-        </div>
-        <div className="fc-header">
-          <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
-        </div>
+        {!embed && (
+          <>
+            <div className="fc-topbar">
+              <div className="social-links">
+                <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-instagram"></i>
+                </a>
+                <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-facebook"></i>
+                </a>
+              </div>
+            </div>
+            <div className="fc-header">
+              <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
+            </div>
+          </>
+        )}
         <div className="upload-container">
           <div className="success-title">Fotos enviadas com sucesso!</div>
 
@@ -364,20 +373,24 @@ export default function Upload() {
 
   return (
     <div>
-      <div className="fc-topbar">
-        <div className="social-links">
-          <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
-            <i className="fab fa-instagram"></i>
-          </a>
-          <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
-            <i className="fab fa-facebook"></i>
-          </a>
-        </div>
-      </div>
+      {!embed && (
+        <>
+          <div className="fc-topbar">
+            <div className="social-links">
+              <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
+                <i className="fab fa-instagram"></i>
+              </a>
+              <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
+                <i className="fab fa-facebook"></i>
+              </a>
+            </div>
+          </div>
 
-      <div className="fc-header">
-        <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
-      </div>
+          <div className="fc-header">
+            <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
+          </div>
+        </>
+      )}
 
       {/* Processing overlay for HEIC conversion */}
       {processing && (
@@ -633,18 +646,20 @@ export default function Upload() {
         )}
 
         {/* Version footer */}
-        <div style={{ textAlign: 'center', marginTop: 30, padding: 10, color: '#999', fontSize: 12 }}>
-          <span>v{APP_VERSION}</span>
-          <span style={{ margin: '0 10px' }}>|</span>
-          <a
-            href={`https://wa.me/${WHATSAPP_SUPPORT}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#25d366', textDecoration: 'none' }}
-          >
-            <i className="fab fa-whatsapp"></i> Suporte
-          </a>
-        </div>
+        {!embed && (
+          <div style={{ textAlign: 'center', marginTop: 30, padding: 10, color: '#999', fontSize: 12 }}>
+            <span>v{APP_VERSION}</span>
+            <span style={{ margin: '0 10px' }}>|</span>
+            <a
+              href={`https://wa.me/${WHATSAPP_SUPPORT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#25d366', textDecoration: 'none' }}
+            >
+              <i className="fab fa-whatsapp"></i> Suporte
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

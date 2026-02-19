@@ -7,6 +7,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Upload />} />
+      <Route path="/embed" element={<Upload embed />} />
       <Route path="/login" element={<Login />} />
       <Route path="/manager" element={<Manager />} />
     </Routes>

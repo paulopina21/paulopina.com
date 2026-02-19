@@ -174,7 +174,15 @@ export default function Manager() {
   const [linkSize, setLinkSize] = useState('')
   const [linkMin, setLinkMin] = useState('')
   const [linkMax, setLinkMax] = useState('')
+  const [linkEmbed, setLinkEmbed] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+
+  // Embed generator state
+  const [showEmbedGenerator, setShowEmbedGenerator] = useState(false)
+  const [embedSize, setEmbedSize] = useState('')
+  const [embedMin, setEmbedMin] = useState('')
+  const [embedMax, setEmbedMax] = useState('')
+  const [embedCopied, setEmbedCopied] = useState(false)
 
   // Download state
   const [downloading, setDownloading] = useState(false)
@@ -595,9 +603,14 @@ export default function Manager() {
               </button>
             )}
             {!selectedClient && (
-              <button className="btn primary" onClick={() => setShowLinkGenerator(true)}>
-                <i className="fas fa-link"></i> Gerar Link
-              </button>
+              <>
+                <button className="btn primary" onClick={() => setShowLinkGenerator(true)}>
+                  <i className="fas fa-link"></i> Gerar Link
+                </button>
+                <button className="btn primary" onClick={() => setShowEmbedGenerator(true)}>
+                  <i className="fas fa-code"></i> Gerar Embed
+                </button>
+              </>
             )}
             <button className="btn danger" onClick={handleLogout}>
               <i className="fas fa-sign-out-alt"></i> Sair
@@ -881,7 +894,7 @@ export default function Manager() {
 
       {/* Link Generator Modal */}
       {showLinkGenerator && (() => {
-        const baseUrl = 'https://envios.fotocity.com.br/'
+        const baseUrl = linkEmbed ? 'https://envios.fotocity.com.br/embed' : 'https://envios.fotocity.com.br/'
         const queryParts: string[] = []
         if (linkSize) queryParts.push(`tamanho=${encodeURIComponent(linkSize)}`)
         if (linkMin) queryParts.push(`min=${linkMin}`)
@@ -933,6 +946,17 @@ export default function Manager() {
                   </div>
                 </div>
 
+                <div className="form-item" style={{ marginTop: 10 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={linkEmbed}
+                      onChange={(e) => setLinkEmbed(e.target.checked)}
+                    />
+                    Link para iframe (embed)
+                  </label>
+                </div>
+
                 <div className="link-url-preview">
                   <span className="link-url-text">{generatedUrl}</span>
                   <button className={`link-copy-btn ${linkCopied ? 'link-copied' : ''}`} onClick={handleCopy}>
@@ -944,6 +968,89 @@ export default function Manager() {
 
               <div style={{ marginTop: 20, textAlign: 'center' }}>
                 <button className="btn" onClick={() => setShowLinkGenerator(false)}>
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Embed Generator Modal */}
+      {showEmbedGenerator && (() => {
+        const embedUrl = 'https://envios.fotocity.com.br/embed'
+        const queryParts: string[] = []
+        if (embedSize) queryParts.push(`tamanho=${encodeURIComponent(embedSize)}`)
+        if (embedMin) queryParts.push(`min=${embedMin}`)
+        if (embedMax) queryParts.push(`max=${embedMax}`)
+        const fullEmbedUrl = queryParts.length > 0 ? `${embedUrl}?${queryParts.join('&')}` : embedUrl
+
+        const embedCode = `<iframe src="${fullEmbedUrl}" style="width:100%;height:600px;border:none;" allow="camera"></iframe>
+<script>
+window.addEventListener('message', function(event) {
+  if (event.data === 'fotocity:upload-complete') {
+    var match = window.location.href.match(/-p(\\d+)/);
+    if (match) addToCart(match[1]);
+  }
+});
+</script>`
+
+        const handleCopyEmbed = () => {
+          navigator.clipboard.writeText(embedCode)
+          setEmbedCopied(true)
+          setTimeout(() => setEmbedCopied(false), 2000)
+        }
+
+        return (
+          <div className="download-overlay" onClick={() => setShowEmbedGenerator(false)}>
+            <div className="download-modal" style={{ maxWidth: 560, padding: '30px' }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ marginBottom: 20 }}>Gerar Código Embed</h3>
+
+              <div className="link-generator-form">
+                <div className="form-item">
+                  <label>Tamanho das Fotos</label>
+                  <select value={embedSize} onChange={(e) => setEmbedSize(e.target.value)}>
+                    <option value="">Qualquer tamanho</option>
+                    {PHOTO_SIZES.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="link-generator-row">
+                  <div className="form-item">
+                    <label>Mínimo de fotos</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Sem limite"
+                      value={embedMin}
+                      onChange={(e) => setEmbedMin(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label>Máximo de fotos</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Sem limite"
+                      value={embedMax}
+                      onChange={(e) => setEmbedMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="link-url-preview" style={{ marginTop: 15 }}>
+                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 12, textAlign: 'left', margin: 0 }}>{embedCode}</pre>
+                  <button className={`link-copy-btn ${embedCopied ? 'link-copied' : ''}`} onClick={handleCopyEmbed}>
+                    <i className={`fas ${embedCopied ? 'fa-check' : 'fa-copy'}`}></i>
+                    {embedCopied ? 'Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 20, textAlign: 'center' }}>
+                <button className="btn" onClick={() => setShowEmbedGenerator(false)}>
                   Fechar
                 </button>
               </div>
