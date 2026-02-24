@@ -915,7 +915,7 @@ export default function Manager() {
 
         return (
           <div className="download-overlay" onClick={() => setShowLinkGenerator(false)}>
-            <div className="download-modal" style={{ maxWidth: 460, padding: '30px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="download-modal" style={{ maxWidth: 500, padding: '30px' }} onClick={(e) => e.stopPropagation()}>
               <h3 style={{ marginBottom: 20 }}>Gerar Link para Envios</h3>
 
               <div className="link-generator-form">
@@ -952,26 +952,20 @@ export default function Manager() {
                   </div>
                 </div>
 
-                <div className="form-item" style={{ marginTop: 10 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={linkEmbed}
-                      onChange={(e) => setLinkEmbed(e.target.checked)}
-                    />
-                    Link para iframe (embed)
+                <div className="toggle-row">
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={linkEmbed} onChange={(e) => setLinkEmbed(e.target.checked)} />
+                    <span className="toggle-slider"></span>
                   </label>
+                  <span className="toggle-label">Link para iframe (embed)</span>
                 </div>
 
-                <div className="form-item" style={{ marginTop: 6 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={linkEditar}
-                      onChange={(e) => setLinkEditar(e.target.checked)}
-                    />
-                    Permitir edição de fotos
+                <div className="toggle-row">
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={linkEditar} onChange={(e) => setLinkEditar(e.target.checked)} />
+                    <span className="toggle-slider"></span>
                   </label>
+                  <span className="toggle-label">Permitir edição de fotos</span>
                 </div>
 
                 <div className="link-url-preview">
@@ -1058,15 +1052,12 @@ window.addEventListener('message', function(event) {
                   </div>
                 </div>
 
-                <div className="form-item" style={{ marginTop: 10 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={embedEditar}
-                      onChange={(e) => setEmbedEditar(e.target.checked)}
-                    />
-                    Permitir edição de fotos
+                <div className="toggle-row">
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={embedEditar} onChange={(e) => setEmbedEditar(e.target.checked)} />
+                    <span className="toggle-slider"></span>
                   </label>
+                  <span className="toggle-label">Permitir edição de fotos</span>
                 </div>
 
                 <div className="link-url-preview" style={{ marginTop: 15 }}>
