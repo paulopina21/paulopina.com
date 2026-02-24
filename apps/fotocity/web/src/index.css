@@ -1383,8 +1383,12 @@ body {
 }
 
 /* Caption input in photo editor */
+.caption-input-wrapper {
+  position: relative;
+}
+
 .caption-input {
-  padding: 10px 12px;
+  padding: 10px 40px 10px 12px;
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
@@ -1397,6 +1401,56 @@ body {
 .caption-input:focus {
   outline: none;
   border-color: #1e88e5;
+}
+
+.emoji-toggle-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.emoji-toggle-btn:hover {
+  background: #f0f0f0;
+}
+
+.emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-top: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.emoji-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-btn:hover {
+  background: #e3f2fd;
 }
 
 .photo-editor-footer {

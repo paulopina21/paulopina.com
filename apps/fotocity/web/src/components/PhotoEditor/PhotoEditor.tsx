@@ -36,6 +36,8 @@ export default function PhotoEditor({
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const captionRef = useRef<HTMLTextAreaElement>(null)
+  const [showEmojis, setShowEmojis] = useState(false)
 
   // Drag state
   const [isDragging, setIsDragging] = useState(false)
@@ -469,26 +471,71 @@ export default function PhotoEditor({
               <>
                 <div className="control-section">
                   <label>Legenda</label>
-                  <textarea
-                    value={state.caption || ''}
-                    onChange={e => {
-                      const val = e.target.value
-                      const lines = val.split('\n')
-                      if (lines.length > 2) return
-                      if (val.length > 80) return
-                      handleStateChange({ caption: val })
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        const lines = (state.caption || '').split('\n')
-                        if (lines.length >= 2) e.preventDefault()
-                      }
-                    }}
-                    placeholder="Digite sua legenda..."
-                    rows={2}
-                    maxLength={80}
-                    className="caption-input"
-                  />
+                  <div className="caption-input-wrapper">
+                    <textarea
+                      ref={captionRef}
+                      value={state.caption || ''}
+                      onChange={e => {
+                        const val = e.target.value
+                        const lines = val.split('\n')
+                        if (lines.length > 2) return
+                        if (val.length > 80) return
+                        handleStateChange({ caption: val })
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const lines = (state.caption || '').split('\n')
+                          if (lines.length >= 2) e.preventDefault()
+                        }
+                      }}
+                      placeholder="Digite sua legenda..."
+                      rows={2}
+                      maxLength={80}
+                      className="caption-input"
+                    />
+                    <button
+                      type="button"
+                      className="emoji-toggle-btn"
+                      onClick={() => setShowEmojis(!showEmojis)}
+                      title="Emojis"
+                    >
+                      😊
+                    </button>
+                  </div>
+                  {showEmojis && (
+                    <div className="emoji-picker">
+                      {['😊','😍','❤️','🥰','😂','🎉','✨','💕','🌟','😘',
+                        '🥳','💖','🔥','💫','🌈','🎂','🎁','📸','💐','🌺',
+                        '⭐','💗','😎','🤩','💋','🙏','👏','💜','💙','💛'].map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="emoji-btn"
+                          onClick={() => {
+                            const ta = captionRef.current
+                            const current = state.caption || ''
+                            if (current.length + emoji.length > 80) return
+                            if (ta) {
+                              const start = ta.selectionStart
+                              const end = ta.selectionEnd
+                              const newVal = current.slice(0, start) + emoji + current.slice(end)
+                              const lines = newVal.split('\n')
+                              if (lines.length > 2) return
+                              handleStateChange({ caption: newVal })
+                              setTimeout(() => {
+                                ta.focus()
+                                ta.selectionStart = ta.selectionEnd = start + emoji.length
+                              }, 0)
+                            } else {
+                              handleStateChange({ caption: current + emoji })
+                            }
+                          }}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <span className="char-count">
                     {(state.caption || '').length}/80 • máx 2 linhas
                   </span>
