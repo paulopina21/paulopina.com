@@ -224,6 +224,8 @@ export const FONTS: FontOption[] = [
   { name: 'indie-flower', family: 'Indie Flower', displayName: 'Divertida' },
   { name: 'permanent-marker', family: 'Permanent Marker', displayName: 'Marcador' },
   { name: 'kalam', family: 'Kalam', displayName: 'Escrita' },
+  { name: 'amatic-sc', family: 'Amatic SC', displayName: 'Amatic' },
+  { name: 'dancing-script', family: 'Dancing Script', displayName: 'Elegante' },
 ]
 
 // Available caption colors (for Polaroid)
