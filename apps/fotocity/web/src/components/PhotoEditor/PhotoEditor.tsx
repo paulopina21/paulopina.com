@@ -469,16 +469,28 @@ export default function PhotoEditor({
               <>
                 <div className="control-section">
                   <label>Legenda</label>
-                  <input
-                    type="text"
+                  <textarea
                     value={state.caption || ''}
-                    onChange={e => handleStateChange({ caption: e.target.value.slice(0, 60) })}
+                    onChange={e => {
+                      const val = e.target.value
+                      const lines = val.split('\n')
+                      if (lines.length > 2) return
+                      if (val.length > 80) return
+                      handleStateChange({ caption: val })
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const lines = (state.caption || '').split('\n')
+                        if (lines.length >= 2) e.preventDefault()
+                      }
+                    }}
                     placeholder="Digite sua legenda..."
-                    maxLength={60}
+                    rows={2}
+                    maxLength={80}
                     className="caption-input"
                   />
                   <span className="char-count">
-                    {(state.caption || '').length}/60
+                    {(state.caption || '').length}/80 • máx 2 linhas
                   </span>
                 </div>
 
