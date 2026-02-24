@@ -231,13 +231,17 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           status: `Processando foto ${i + 1} de ${files.length}...`
         })
 
-        // ALWAYS render photos to correct print size with upscaling if needed
-        // Use existing edit state or create default one
-        const isRectangular = sizeInfo.orientation !== 'square' && !sizeInfo.isPolaroid
-        const finalEditState = editState || getDefaultEditState(sizeInfo.isPolaroid, isRectangular)
-
-        const photoBlob = await renderPhoto(previews[i], finalEditState, sizeInfo, true)
-        const fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
+        let fileToUpload: File
+        if (allowEditing) {
+          // Render photo to correct print size with edits (crop, filters, resize)
+          const isRectangular = sizeInfo.orientation !== 'square' && !sizeInfo.isPolaroid
+          const finalEditState = editState || getDefaultEditState(sizeInfo.isPolaroid, isRectangular)
+          const photoBlob = await renderPhoto(previews[i], finalEditState, sizeInfo, true)
+          fileToUpload = new File([photoBlob], `photo_${i}.jpg`, { type: 'image/jpeg' })
+        } else {
+          // Upload original file without any processing
+          fileToUpload = files[i]
+        }
 
         // Update progress - uploading
         setUploadProgress({
