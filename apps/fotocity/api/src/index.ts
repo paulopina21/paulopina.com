@@ -94,6 +94,21 @@ async function deleteClientMeta(env: Env, email: string): Promise<void> {
   await env.CLIENT_META.delete(email);
 }
 
+// Paginated R2 listing helper (R2 list returns max 1000 objects per call)
+async function listAllObjects(
+  bucket: R2Bucket,
+  options?: { prefix?: string }
+): Promise<R2Object[]> {
+  const allObjects: R2Object[] = [];
+  let cursor: string | undefined;
+  do {
+    const listed = await bucket.list({ prefix: options?.prefix, cursor });
+    allObjects.push(...listed.objects);
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+  return allObjects;
+}
+
 // Photo storage functions (R2 when available, otherwise returns instructions)
 async function uploadPhoto(
   env: Env,
@@ -133,9 +148,9 @@ async function listPhotos(
   }
 
   const prefix = `${clientId}/${productId}/`;
-  const listed = await env.PHOTOS.list({ prefix });
+  const objects = await listAllObjects(env.PHOTOS, { prefix });
 
-  const files = listed.objects.map((obj) => ({
+  const files = objects.map((obj) => ({
     id: obj.key.split('/').pop()?.split('.')[0] || '',
     url: `/api/photos/${obj.key}`,
   }));
@@ -168,9 +183,9 @@ async function deleteAllPhotos(
   }
 
   const prefix = `${clientId}/${productId}/`;
-  const listed = await env.PHOTOS.list({ prefix });
+  const objects = await listAllObjects(env.PHOTOS, { prefix });
 
-  for (const obj of listed.objects) {
+  for (const obj of objects) {
     await env.PHOTOS.delete(obj.key);
   }
 
@@ -183,18 +198,12 @@ async function deleteClient(env: Env, clientId: string): Promise<{ status: strin
   }
 
   const prefix = `${clientId}/`;
-  let deleted = 0;
-  let cursor: string | undefined;
+  const objects = await listAllObjects(env.PHOTOS, { prefix });
 
-  // Delete all photos in batches (R2 list returns max 1000 at a time)
-  do {
-    const listed = await env.PHOTOS.list({ prefix, cursor });
-    for (const obj of listed.objects) {
-      await env.PHOTOS.delete(obj.key);
-      deleted++;
-    }
-    cursor = listed.truncated ? listed.cursor : undefined;
-  } while (cursor);
+  for (const obj of objects) {
+    await env.PHOTOS.delete(obj.key);
+  }
+  const deleted = objects.length;
 
   // Delete client metadata
   await deleteClientMeta(env, clientId);
@@ -207,10 +216,10 @@ async function listClients(env: Env): Promise<{ email: string; nome: string; tel
     return [];
   }
 
-  const listed = await env.PHOTOS.list();
+  const objects = await listAllObjects(env.PHOTOS);
   const clientMap = new Map<string, number>();
 
-  for (const obj of listed.objects) {
+  for (const obj of objects) {
     const parts = obj.key.split('/');
     if (parts.length >= 1) {
       const clientEmail = parts[0];
@@ -244,10 +253,10 @@ async function listClientProducts(env: Env, clientId: string): Promise<{ produto
   }
 
   const prefix = `${clientId}/`;
-  const listed = await env.PHOTOS.list({ prefix });
+  const objects = await listAllObjects(env.PHOTOS, { prefix });
   const productMap = new Map<string, { data: number; qtd: number }>();
 
-  for (const obj of listed.objects) {
+  for (const obj of objects) {
     const parts = obj.key.split('/');
     if (parts.length >= 2) {
       const productId = parts[1];
@@ -275,11 +284,11 @@ async function listProductPhotos(env: Env, clientId: string, productId: string):
   }
 
   const prefix = `${clientId}/${productId}/`;
-  const listed = await env.PHOTOS.list({ prefix });
+  const objects = await listAllObjects(env.PHOTOS, { prefix });
 
   // Get metadata for each photo to retrieve copies count
   const photos = await Promise.all(
-    listed.objects.map(async (obj) => {
+    objects.map(async (obj) => {
       const head = await env.PHOTOS!.head(obj.key);
       const copies = head?.customMetadata?.copies ? parseInt(head.customMetadata.copies) : 1;
       return {
