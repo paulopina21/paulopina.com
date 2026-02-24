@@ -512,7 +512,7 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
                     {editState?.caption || 'Sem legenda'}
                   </div>
                 )}
-                {hasSelectedSize && !isEdited && (
+                {allowEditing && hasSelectedSize && !isEdited && (
                   <div className="edit-overlay">
                     <i className="fas fa-edit"></i>
                     <span>Editar</span>
