@@ -326,6 +326,45 @@ async function getPhotoFile(env: Env, request: Request, key: string): Promise<Re
   return new Response(object.body, { headers });
 }
 
+const CLEANUP_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+async function cleanupOldPhotos(env: Env): Promise<{ deleted: number; clientsRemoved: string[] }> {
+  if (!env.PHOTOS) {
+    return { deleted: 0, clientsRemoved: [] };
+  }
+
+  const cutoff = Date.now() - CLEANUP_MAX_AGE_MS;
+  const objects = await listAllObjects(env.PHOTOS);
+
+  // Delete old objects and track which clients still have photos
+  let deleted = 0;
+  const clientsWithPhotos = new Set<string>();
+  const clientsSeen = new Set<string>();
+
+  for (const obj of objects) {
+    const client = obj.key.split('/')[0];
+    clientsSeen.add(client);
+
+    if (obj.uploaded.getTime() < cutoff) {
+      await env.PHOTOS.delete(obj.key);
+      deleted++;
+    } else {
+      clientsWithPhotos.add(client);
+    }
+  }
+
+  // Remove metadata for clients that had photos but now have none
+  const clientsRemoved: string[] = [];
+  for (const client of clientsSeen) {
+    if (!clientsWithPhotos.has(client)) {
+      await deleteClientMeta(env, client);
+      clientsRemoved.push(client);
+    }
+  }
+
+  return { deleted, clientsRemoved };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -465,6 +504,11 @@ export default {
 
       if (!valid) {
         return jsonResponse(request, { status: 'error', message: 'Unauthorized' }, 401);
+      }
+
+      if (path === '/api/admin/cleanup' && method === 'POST') {
+        const result = await cleanupOldPhotos(env);
+        return jsonResponse(request, { status: 'ok', ...result });
       }
 
       if (path === '/api/admin/clients') {

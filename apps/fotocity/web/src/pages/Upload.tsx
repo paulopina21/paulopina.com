@@ -59,6 +59,7 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
   const maxImages = params.get('max') ? parseInt(params.get('max')!) : null
   const defaultSize = params.get('tamanho') || ''
   const lockedSize = params.get('tamanho') || ''
+  const allowEditing = params.get('editar') === '1'
 
   // Get current selected size info
   const currentSize = photoSize || defaultSize
@@ -174,6 +175,7 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
 
   // Handle opening the photo editor
   const handleEditPhoto = (index: number) => {
+    if (!allowEditing) return
     if (hasSelectedSize) {
       setEditingIndex(index)
     }
@@ -465,8 +467,8 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           )}
         </div>
 
-        {/* Edit hint when size is selected */}
-        {hasSelectedSize && files.length > 0 && (
+        {/* Edit hint when size is selected and editing is allowed */}
+        {allowEditing && hasSelectedSize && files.length > 0 && (
           <div className={`photo-edit-hint ${isPolaroidMode ? 'polaroid' : ''}`}>
             <i className="fas fa-info-circle"></i>
             <span>
@@ -495,9 +497,9 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
             return (
               <div
                 key={index}
-                className={`${itemClass} ${hasSelectedSize ? 'editable' : ''}`}
+                className={`${itemClass} ${allowEditing && hasSelectedSize ? 'editable' : ''}`}
                 onClick={() => handleEditPhoto(index)}
-                style={{ cursor: hasSelectedSize ? 'pointer' : 'default' }}
+                style={{ cursor: allowEditing && hasSelectedSize ? 'pointer' : 'default' }}
               >
                 <img
                   src={photoPreviews.get(index) || preview}
@@ -543,7 +545,7 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
         </div>
 
         {/* Photo Editor Modal */}
-        {editingIndex >= 0 && sizeInfo && (
+        {allowEditing && editingIndex >= 0 && sizeInfo && (
           <PhotoEditor
             preview={previews[editingIndex]}
             sizeInfo={sizeInfo}

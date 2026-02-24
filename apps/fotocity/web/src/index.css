@@ -60,13 +60,14 @@ body {
 .upload-box {
   border: 2px dashed #999;
   border-radius: 12px;
-  padding: 30px;
+  padding: 40px 30px;
   text-align: center;
   cursor: pointer;
   color: #555;
   background: #fafafa;
   transition: 0.3s;
   display: block;
+  font-size: 18px;
 }
 
 .upload-box:hover {
@@ -83,8 +84,9 @@ body {
   margin: 10px 0;
   text-align: center;
   font-weight: 700;
-  padding: 10px;
+  padding: 12px;
   border-radius: 5px;
+  font-size: 16px;
 }
 
 .message.success {
@@ -100,8 +102,8 @@ body {
 
 /* Image count */
 .image-count {
-  font-size: 14px;
-  margin: 10px 0;
+  font-size: 16px;
+  margin: 12px 0;
   text-align: center;
 }
 
@@ -230,11 +232,11 @@ body {
 }
 
 .btn {
-  padding: 10px 16px;
+  padding: 12px 20px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   transition: 0.2s;
   border: 2px solid transparent;
   background: #fff;
@@ -315,15 +317,16 @@ body {
   display: block;
   font-weight: 700;
   margin-bottom: 6px;
+  font-size: 15px;
 }
 
 .form-item input,
 .form-item select {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #ccc;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
   background: #fff;
 }
 
@@ -1541,13 +1544,13 @@ body {
   background: #e3f2fd;
   border: 1px solid #90caf9;
   border-radius: 8px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   margin: 15px 0;
   display: flex;
   align-items: center;
   gap: 10px;
   color: #1565c0;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .photo-edit-hint i {

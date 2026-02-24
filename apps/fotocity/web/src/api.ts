@@ -84,6 +84,16 @@ export interface Client {
   data: number;
 }
 
+export async function runCleanup(): Promise<{ deleted: number; clientsRemoved: string[] }> {
+  try {
+    const res = await authFetch(`${API_BASE}/api/admin/cleanup`, { method: 'POST' });
+    const data = await res.json();
+    return { deleted: data.deleted || 0, clientsRemoved: data.clientsRemoved || [] };
+  } catch {
+    return { deleted: 0, clientsRemoved: [] };
+  }
+}
+
 export async function getClients(): Promise<Client[]> {
   try {
     const res = await authFetch(`${API_BASE}/api/admin/clients`);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { checkSession, logout, getClients, getClientProducts, getProductPhotos, Client } from '../api'
+import { checkSession, logout, getClients, getClientProducts, getProductPhotos, runCleanup, Client } from '../api'
 import { extractSizeFromProductId, parsePhotoSize, PHOTO_SIZES } from '../utils/photoSizes'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
@@ -38,9 +38,9 @@ function formatProductName(produto: string): string {
   return produto
 }
 
-function isOlderThan3Months(timestamp: number): boolean {
-  const threeMonthsAgo = Date.now() - (90 * 24 * 60 * 60 * 1000)
-  return timestamp < threeMonthsAgo
+function isOlderThan30Days(timestamp: number): boolean {
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000)
+  return timestamp < thirtyDaysAgo
 }
 
 function getWhatsAppUrl(telefone: string): string {
@@ -175,6 +175,7 @@ export default function Manager() {
   const [linkMin, setLinkMin] = useState('')
   const [linkMax, setLinkMax] = useState('')
   const [linkEmbed, setLinkEmbed] = useState(false)
+  const [linkEditar, setLinkEditar] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
   // Embed generator state
@@ -182,6 +183,7 @@ export default function Manager() {
   const [embedSize, setEmbedSize] = useState('')
   const [embedMin, setEmbedMin] = useState('')
   const [embedMax, setEmbedMax] = useState('')
+  const [embedEditar, setEmbedEditar] = useState(false)
   const [embedCopied, setEmbedCopied] = useState(false)
 
   // Download state
@@ -197,6 +199,9 @@ export default function Manager() {
         navigate('/login')
         return
       }
+
+      // Cleanup old photos (30 days) before loading clients
+      await runCleanup()
 
       const data = await getClients()
       setClients(data)
@@ -340,7 +345,7 @@ export default function Manager() {
   }
 
   const selectOldClients = () => {
-    const oldClients = filteredClients.filter(c => isOlderThan3Months(c.data))
+    const oldClients = filteredClients.filter(c => isOlderThan30Days(c.data))
     setSelectedClientIds(new Set(oldClients.map(c => c.email)))
   }
 
@@ -361,7 +366,7 @@ export default function Manager() {
   }
 
   const selectOldProducts = () => {
-    const oldProducts = filteredProducts.filter(p => isOlderThan3Months(p.data))
+    const oldProducts = filteredProducts.filter(p => isOlderThan30Days(p.data))
     setSelectedProductIds(new Set(oldProducts.map(p => p.produto)))
   }
 
@@ -655,7 +660,7 @@ export default function Manager() {
               </div>
               <div className="selection-actions">
                 <button className="btn-small" onClick={selectOldClients}>
-                  Selecionar Antigos (+3 meses)
+                  Selecionar Antigos (+30 dias)
                 </button>
                 {selectedClientIds.size > 0 && (
                   <button className="btn-small" onClick={clearClientSelection}>
@@ -685,7 +690,7 @@ export default function Manager() {
                   {filteredClients.map((client) => (
                     <tr
                       key={client.email}
-                      className={`clickable-row ${isOlderThan3Months(client.data) ? 'old-item' : ''}`}
+                      className={`clickable-row ${isOlderThan30Days(client.data) ? 'old-item' : ''}`}
                       onClick={() => handleSelectClient(client)}
                     >
                       <td onClick={(e) => toggleClientSelection(client.email, e)}>
@@ -761,7 +766,7 @@ export default function Manager() {
               </div>
               <div className="selection-actions">
                 <button className="btn-small" onClick={selectOldProducts}>
-                  Selecionar Antigos (+3 meses)
+                  Selecionar Antigos (+30 dias)
                 </button>
                 {selectedProductIds.size > 0 && (
                   <button className="btn-small" onClick={clearProductSelection}>
@@ -794,7 +799,7 @@ export default function Manager() {
                   {filteredProducts.map((product) => (
                     <tr
                       key={product.produto}
-                      className={`clickable-row ${isOlderThan3Months(product.data) ? 'old-item' : ''}`}
+                      className={`clickable-row ${isOlderThan30Days(product.data) ? 'old-item' : ''}`}
                       onClick={() => handleSelectProduct(product.produto)}
                     >
                       <td onClick={(e) => toggleProductSelection(product.produto, e)}>
@@ -899,6 +904,7 @@ export default function Manager() {
         if (linkSize) queryParts.push(`tamanho=${encodeURIComponent(linkSize)}`)
         if (linkMin) queryParts.push(`min=${linkMin}`)
         if (linkMax) queryParts.push(`max=${linkMax}`)
+        if (linkEditar) queryParts.push(`editar=1`)
         const generatedUrl = queryParts.length > 0 ? `${baseUrl}?${queryParts.join('&')}` : baseUrl
 
         const handleCopy = () => {
@@ -957,6 +963,17 @@ export default function Manager() {
                   </label>
                 </div>
 
+                <div className="form-item" style={{ marginTop: 6 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={linkEditar}
+                      onChange={(e) => setLinkEditar(e.target.checked)}
+                    />
+                    Permitir edição de fotos
+                  </label>
+                </div>
+
                 <div className="link-url-preview">
                   <span className="link-url-text">{generatedUrl}</span>
                   <button className={`link-copy-btn ${linkCopied ? 'link-copied' : ''}`} onClick={handleCopy}>
@@ -983,6 +1000,7 @@ export default function Manager() {
         if (embedSize) queryParts.push(`tamanho=${encodeURIComponent(embedSize)}`)
         if (embedMin) queryParts.push(`min=${embedMin}`)
         if (embedMax) queryParts.push(`max=${embedMax}`)
+        if (embedEditar) queryParts.push(`editar=1`)
         const fullEmbedUrl = queryParts.length > 0 ? `${embedUrl}?${queryParts.join('&')}` : embedUrl
 
         const embedCode = `<iframe src="${fullEmbedUrl}" style="width:100%;height:600px;border:none;" allow="camera"></iframe>
@@ -1038,6 +1056,17 @@ window.addEventListener('message', function(event) {
                       onChange={(e) => setEmbedMax(e.target.value)}
                     />
                   </div>
+                </div>
+
+                <div className="form-item" style={{ marginTop: 10 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={embedEditar}
+                      onChange={(e) => setEmbedEditar(e.target.checked)}
+                    />
+                    Permitir edição de fotos
+                  </label>
                 </div>
 
                 <div className="link-url-preview" style={{ marginTop: 15 }}>
