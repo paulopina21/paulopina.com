@@ -8,6 +8,8 @@ import {
   FILTERS_INSTAGRAM,
   FONTS,
   COLORS,
+  CAPTION_SIZES,
+  CaptionSize,
   loadFonts,
   PhotoOrientation,
 } from './types'
@@ -511,6 +513,23 @@ export default function PhotoEditor({
                           onClick={() => handleStateChange({ color: c })}
                           title={c.name}
                         />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label>Tamanho</label>
+                    <div className="font-buttons">
+                      {CAPTION_SIZES.map(s => (
+                        <button
+                          key={s.value}
+                          type="button"
+                          className={`font-btn ${(state.captionSize || 'medium') === s.value ? 'active' : ''}`}
+                          onClick={() => handleStateChange({ captionSize: s.value as CaptionSize })}
+                          title={s.label}
+                        >
+                          {s.label}
+                        </button>
                       ))}
                     </div>
                   </div>

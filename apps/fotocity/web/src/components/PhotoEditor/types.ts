@@ -4,6 +4,22 @@ import { PhotoSizeInfo } from '../../utils/photoSizes'
 // Polaroid border style options
 export type PolaroidBorderStyle = 'bottom' | 'full'
 
+// Caption size options
+export type CaptionSize = 'small' | 'medium' | 'large'
+
+export const CAPTION_SIZES: { value: CaptionSize; label: string }[] = [
+  { value: 'small', label: 'P' },
+  { value: 'medium', label: 'M' },
+  { value: 'large', label: 'G' },
+]
+
+// Font size multipliers per caption size
+export const CAPTION_SIZE_MULTIPLIERS: Record<CaptionSize, number> = {
+  small: 1,
+  medium: 1.4,
+  large: 1.85,
+}
+
 // Orientation for rectangular photos
 export type PhotoOrientation = 'portrait' | 'landscape'
 
@@ -23,6 +39,7 @@ export interface PhotoEditState {
   polaroidBorder?: PolaroidBorderStyle
   // Caption (only for Polaroid)
   caption?: string
+  captionSize?: CaptionSize
   font?: FontOption
   color?: ColorOption
   // White border for normal photos (4mm on all sides)
@@ -68,6 +85,7 @@ export function getDefaultEditState(isPolaroid: boolean, isRectangular: boolean 
     orientation: isRectangular ? 'portrait' : undefined,
     polaroidBorder: isPolaroid ? 'full' : undefined,
     caption: isPolaroid ? '' : undefined,
+    captionSize: isPolaroid ? 'medium' : undefined,
     font: isPolaroid ? FONTS[0] : undefined,
     color: isPolaroid ? COLORS[0] : undefined,
     whiteBorder: isPolaroid ? undefined : false,

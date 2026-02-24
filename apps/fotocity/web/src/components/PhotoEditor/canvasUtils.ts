@@ -1,4 +1,4 @@
-import { PhotoEditState, FilterOption } from './types'
+import { PhotoEditState, FilterOption, CAPTION_SIZE_MULTIPLIERS } from './types'
 import { PhotoSizeInfo, cmToPixels } from '../../utils/photoSizes'
 import { upscaleForPrint, checkResolutionQuality } from '../../utils/imageUtils'
 
@@ -217,8 +217,9 @@ async function renderToCanvas(
 
       // Draw caption if present
       if (editState.caption?.trim() && editState.font && editState.color) {
-        const fontSize = Math.round(42 * scale)
-        const lineHeight = Math.round(50 * scale)
+        const sizeMultiplier = CAPTION_SIZE_MULTIPLIERS[editState.captionSize || 'medium']
+        const fontSize = Math.round(42 * sizeMultiplier * scale)
+        const lineHeight = Math.round(50 * sizeMultiplier * scale)
         const padding = Math.round(20 * scale)
         const maxTextWidth = totalWidth - padding * 2
 
@@ -286,8 +287,9 @@ async function renderToCanvas(
 
       // Draw caption if present
       if (editState.caption?.trim() && editState.font && editState.color) {
-        const fontSize = Math.round(48 * scale)
-        const lineHeight = Math.round(56 * scale)
+        const sizeMultiplier = CAPTION_SIZE_MULTIPLIERS[editState.captionSize || 'medium']
+        const fontSize = Math.round(48 * sizeMultiplier * scale)
+        const lineHeight = Math.round(56 * sizeMultiplier * scale)
         const padding = Math.round(30 * scale)
         const maxTextWidth = width - padding * 2
 
