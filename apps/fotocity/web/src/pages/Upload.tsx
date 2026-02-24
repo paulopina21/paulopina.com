@@ -486,13 +486,15 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           </div>
         )}
 
-        <div className={`preview-grid ${sizeInfo ? `preview-grid-${sizeInfo.isPolaroid ? 'polaroid' : sizeInfo.orientation}` : ''}`}>
+        <div className={`preview-grid ${allowEditing && sizeInfo ? `preview-grid-${sizeInfo.isPolaroid ? 'polaroid' : sizeInfo.orientation}` : ''}`}>
           {previews.map((preview, index) => {
             const editState = photoEdits.get(index)
-            const isEdited = hasSelectedSize && editState
+            const isEdited = allowEditing && hasSelectedSize && editState
             // Use edited orientation if available, otherwise fall back to sizeInfo
             const photoOrientation = editState?.orientation || sizeInfo?.orientation || 'portrait'
-            const itemClass = isPolaroidMode
+            const itemClass = !allowEditing
+              ? 'preview-item'
+              : isPolaroidMode
               ? 'preview-item polaroid'
               : sizeInfo
               ? `preview-item preview-item-${photoOrientation}`
@@ -510,7 +512,7 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
                   alt={`Preview ${index + 1}`}
                   style={editState?.filter && !photoPreviews.has(index) ? { filter: editState.filter.css } : undefined}
                 />
-                {isPolaroidMode && (
+                {allowEditing && isPolaroidMode && (
                   <div className={`polaroid-caption ${!editState?.caption ? 'empty' : ''}`}
                        style={editState?.font ? { fontFamily: `'${editState.font.family}', cursive` } : undefined}>
                     {editState?.caption || 'Sem legenda'}
