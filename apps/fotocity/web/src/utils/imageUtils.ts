@@ -24,11 +24,18 @@ export function isHeicFile(file: File): boolean {
  */
 export async function convertHeicToJpeg(file: File): Promise<File> {
   try {
-    const blob = await heic2any({
+    // Timeout after 30 seconds for large files
+    const conversionPromise = heic2any({
       blob: file,
       toType: 'image/jpeg',
       quality: 0.92,
     })
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Conversão HEIC demorou demais')), 30000)
+    )
+
+    const blob = await Promise.race([conversionPromise, timeoutPromise])
 
     // heic2any can return array or single blob
     const resultBlob = Array.isArray(blob) ? blob[0] : blob
@@ -37,8 +44,8 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
     const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg')
     return new File([resultBlob], newName, { type: 'image/jpeg' })
   } catch (error) {
-    console.error('HEIC conversion failed:', error)
-    throw new Error('Falha ao converter imagem HEIC')
+    console.error('HEIC conversion failed for', file.name, ':', error)
+    throw new Error(`Falha ao converter ${file.name} (HEIC). Tente converter para JPG antes de enviar.`)
   }
 }
 

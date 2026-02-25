@@ -103,29 +103,43 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
       setProcessingStatus('Processando imagens...')
     }
 
-    try {
-      const processedFiles: File[] = []
-      const newPreviews: string[] = []
+    const processedFiles: File[] = []
+    const newPreviews: string[] = []
+    const failedFiles: string[] = []
 
-      for (const file of incoming) {
+    for (const file of incoming) {
+      try {
         if (isHeicFile(file)) {
+          setProcessing(true)
           setProcessingStatus(`Convertendo ${file.name}...`)
         }
 
         const { file: processedFile, dataUrl } = await processImageFile(file)
         processedFiles.push(processedFile)
         newPreviews.push(dataUrl)
+      } catch (error) {
+        console.error(`Error processing ${file.name}:`, error)
+        failedFiles.push(file.name)
       }
+    }
 
+    if (processedFiles.length > 0) {
       setFiles(prev => [...prev, ...processedFiles])
       setPreviews(prev => [...prev, ...newPreviews])
-    } catch (error) {
-      console.error('Error processing files:', error)
-      showMessage('Erro ao processar imagem. Tente outro formato.', 'error')
-    } finally {
-      setProcessing(false)
-      setProcessingStatus('')
     }
+
+    if (failedFiles.length > 0) {
+      const names = failedFiles.join(', ')
+      showMessage(
+        failedFiles.length === 1
+          ? `Não foi possível processar "${names}". Tente converter para JPG antes de enviar.`
+          : `Não foi possível processar ${failedFiles.length} arquivos (${names}). Tente converter para JPG antes de enviar.`,
+        'error'
+      )
+    }
+
+    setProcessing(false)
+    setProcessingStatus('')
   }, [files.length, maxImages])
 
   const removeFile = (index: number) => {
