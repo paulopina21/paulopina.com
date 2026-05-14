@@ -236,12 +236,13 @@ export function checkResolutionQuality(
 
 /**
  * Process image file - converts HEIC and handles basic validation
- * Returns the processed file and a data URL for preview
+ * Returns the processed file and a Blob URL for preview.
+ * Caller MUST URL.revokeObjectURL(previewUrl) when done to release the Blob.
  */
 export async function processImageFile(
   file: File,
   onProgress?: (status: string) => void
-): Promise<{ file: File; dataUrl: string }> {
+): Promise<{ file: File; previewUrl: string }> {
   let processedFile = file
 
   // Convert HEIC to JPEG if needed
@@ -250,15 +251,43 @@ export async function processImageFile(
     processedFile = await convertHeicToJpeg(file)
   }
 
-  // Create data URL for preview
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = e => resolve(e.target?.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(processedFile)
+  // Blob URL is a tiny string reference; binary stays in browser blob storage,
+  // not the JS heap. Critical for iOS Safari to handle 100+ photos.
+  const previewUrl = URL.createObjectURL(processedFile)
+
+  return { file: processedFile, previewUrl }
+}
+
+/**
+ * Render a small thumbnail (max 160px, q=0.5) from any image source.
+ * Used to keep tiny visual confirmation in the success screen without
+ * holding the full-res preview in memory.
+ */
+export async function makeThumbnail(
+  imageSrc: string,
+  maxSize: number = 160,
+  quality: number = 0.5
+): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = reject
+    i.src = imageSrc
   })
 
-  return { file: processedFile, dataUrl }
+  const aspect = img.naturalWidth / img.naturalHeight
+  const w = aspect >= 1 ? maxSize : Math.round(maxSize * aspect)
+  const h = aspect >= 1 ? Math.round(maxSize / aspect) : maxSize
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'medium'
+  ctx.drawImage(img, 0, 0, w, h)
+
+  return canvas.toDataURL('image/jpeg', quality)
 }
 
 /**

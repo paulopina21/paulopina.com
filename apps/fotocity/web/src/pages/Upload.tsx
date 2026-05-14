@@ -1,14 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { PhotoEditor, PhotoEditState, renderPhoto, getDefaultEditState } from '../components/PhotoEditor'
 import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
-import { processImageFile, isHeicFile } from '../utils/imageUtils'
+import { processImageFile, isHeicFile, makeThumbnail } from '../utils/imageUtils'
 import { config } from '../config'
 
 // Version for debugging
 const APP_VERSION = '1.0.5'
 
 const API_BASE = config.apiUrl
-const WEBHOOK_URL = 'https://n8n.fotocity.com.br/webhook/envio-fotos'
 
 function formatPhoneBR(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -117,9 +116,9 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           setProcessingStatus(`Convertendo ${file.name}...`)
         }
 
-        const { file: processedFile, dataUrl } = await processImageFile(file)
+        const { file: processedFile, previewUrl } = await processImageFile(file)
         processedFiles.push(processedFile)
-        newPreviews.push(dataUrl)
+        newPreviews.push(previewUrl)
       } catch (error) {
         console.error(`Error processing ${file.name}:`, error)
         failedFiles.push(file.name)
@@ -146,8 +145,12 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
   }, [files.length, maxImages])
 
   const removeFile = (index: number) => {
+    setPreviews(prev => {
+      const removed = prev[index]
+      if (removed && removed.startsWith('blob:')) URL.revokeObjectURL(removed)
+      return prev.filter((_, i) => i !== index)
+    })
     setFiles(prev => prev.filter((_, i) => i !== index))
-    setPreviews(prev => prev.filter((_, i) => i !== index))
     // Also remove edits for this index and shift others
     setPhotoEdits(prev => {
       const newEdits = new Map<number, PhotoEditState>()
@@ -174,8 +177,11 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
   }
 
   const removeAll = () => {
+    setPreviews(prev => {
+      prev.forEach(url => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url) })
+      return []
+    })
     setFiles([])
-    setPreviews([])
     setPhotoEdits(new Map())
     setPhotoPreviews(new Map())
     setShowForm(false)
@@ -189,6 +195,15 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
       setPhotoPreviews(new Map())
     }
   }, [currentSize])
+
+  // Track latest previews in a ref so unmount cleanup sees the current list (not stale closure).
+  const previewsRef = useRef<string[]>([])
+  useEffect(() => { previewsRef.current = previews }, [previews])
+  useEffect(() => {
+    return () => {
+      previewsRef.current.forEach(url => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url) })
+    }
+  }, [])
 
   // Handle opening the photo editor
   const handleEditPhoto = (index: number) => {
@@ -232,6 +247,10 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
 
     const clientId = email.trim()
     const productId = getProductId()
+
+    // Tiny thumbnails (160px, q=0.5) collected per uploaded photo for the success screen.
+    // Stored as small data URLs (~5-10 KB each) so the heap stays low even after 100+ uploads.
+    const thumbsForSuccess: { preview: string; copies: number }[] = []
 
     try {
       // Upload each file once with copies as metadata
@@ -285,32 +304,57 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           method: 'POST',
           body: formData,
         })
+
+        // Build a tiny thumb for the success screen: prefer the edited preview
+        // (already small ~150px) when present, else render one from the original.
+        const editedThumb = photoPreviews.get(i)
+        try {
+          const thumb = editedThumb && editedThumb.startsWith('data:')
+            ? editedThumb
+            : await makeThumbnail(previews[i], 160, 0.5)
+          thumbsForSuccess.push({ preview: thumb, copies })
+        } catch {
+          thumbsForSuccess.push({ preview: '', copies })
+        }
       }
 
       // Send webhook with album URL
-      const albumUrl = `https://fotocity.paulopina.com/manager?client=${encodeURIComponent(clientId)}&product=${encodeURIComponent(productId)}`
+      const albumUrl = `${config.managerUrl}?client=${encodeURIComponent(clientId)}&product=${encodeURIComponent(productId)}`
+      const webhookPayload = {
+        nome: nome.trim(),
+        email: email.trim(),
+        telefone: whats.trim(),
+        numero_fotos: totalCopies,
+        url_album: albumUrl,
+      }
       try {
-        await fetch(WEBHOOK_URL, {
+        await fetch(config.webhookUrl, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nome: nome.trim(),
-            email: email.trim(),
-            telefone: whats.trim(),
-            numero_fotos: totalCopies,
-            url_album: albumUrl,
-          }),
+          body: JSON.stringify(webhookPayload),
         })
       } catch {
         // Webhook errors are not critical
       }
 
-      // Save sent photos for success screen
-      setSentPhotos(previews.map((preview, i) => ({
-        preview: photoPreviews.get(i) || preview,
-        copies: photoEdits.get(i)?.copies || 1,
-      })))
+      // Confirmation webhook — fires when client reaches the success screen.
+      try {
+        await fetch(config.confirmationWebhookUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookPayload),
+        })
+      } catch {
+        // Webhook errors are not critical
+      }
+
+      // Save sent photos for success screen (tiny thumbs, low heap)
+      setSentPhotos(thumbsForSuccess)
+
+      // Release Blob URLs and clear state — the originals are no longer needed.
+      previews.forEach(url => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url) })
 
       setSuccess(true)
       setFiles([])

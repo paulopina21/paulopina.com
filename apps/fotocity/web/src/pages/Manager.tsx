@@ -155,6 +155,8 @@ export default function Manager() {
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set())
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -204,12 +206,12 @@ export default function Manager() {
         return
       }
 
-      // Cleanup old photos (30 days) before loading clients
-      await runCleanup()
-
       const data = await getClients()
       setClients(data)
       setLoading(false)
+
+      // Cleanup old photos in background — don't block page load
+      runCleanup().catch(() => {})
 
       // Check URL parameters for direct navigation
       const params = new URLSearchParams(window.location.search)
@@ -281,8 +283,12 @@ export default function Manager() {
       result.sort((a, b) => b.data - a.data)
     }
 
+    setCurrentPage(1)
     return result
   }, [clients, searchTerm, dateFilter, sortBy])
+
+  const totalPages = Math.ceil(filteredClients.length / PAGE_SIZE)
+  const paginatedClients = filteredClients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -684,6 +690,7 @@ export default function Manager() {
                 <p>Nenhum cliente encontrado.</p>
               </div>
             ) : (
+              <>
               <table className="client-table">
                 <thead>
                   <tr>
@@ -695,7 +702,7 @@ export default function Manager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClients.map((client) => (
+                  {paginatedClients.map((client) => (
                     <tr
                       key={client.email}
                       className={`clickable-row ${isOlderThan30Days(client.data) ? 'old-item' : ''}`}
@@ -738,6 +745,30 @@ export default function Manager() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="pagination">
+                  <button
+                    className="btn pagination-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                  >
+                    <i className="fas fa-chevron-left"></i> Anterior
+                  </button>
+                  <span className="pagination-info">
+                    Página {currentPage} de {totalPages} ({filteredClients.length} clientes)
+                  </span>
+                  <button
+                    className="btn pagination-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                  >
+                    Próxima <i className="fas fa-chevron-right"></i>
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </>
         )}

@@ -127,7 +127,10 @@ function getSessionCookie(env: Env, sessionId: string, maxAge: number): string {
 async function saveClientMeta(env: Env, email: string, nome: string, telefone: string): Promise<void> {
   if (!env.CLIENT_META) return;
   const meta: ClientMeta = { nome, telefone, email, updatedAt: Date.now() };
-  await env.CLIENT_META.put(email, JSON.stringify(meta));
+  // Store as both value and KV metadata — metadata is returned by list() without individual gets
+  await env.CLIENT_META.put(email, JSON.stringify(meta), {
+    metadata: { nome, telefone, updatedAt: meta.updatedAt },
+  });
 }
 
 async function getClientMeta(env: Env, email: string): Promise<ClientMeta | null> {
@@ -264,37 +267,39 @@ async function deleteClient(env: Env, clientId: string): Promise<{ status: strin
 }
 
 async function listClients(env: Env): Promise<{ email: string; nome: string; telefone: string; data: number }[]> {
-  if (!env.PHOTOS) {
+  if (!env.CLIENT_META) {
     return [];
   }
 
-  const objects = await listAllObjects(env.PHOTOS);
-  const clientMap = new Map<string, number>();
-
-  for (const obj of objects) {
-    const parts = obj.key.split('/');
-    if (parts.length >= 1) {
-      const clientEmail = parts[0];
-      const uploadTime = obj.uploaded.getTime();
-      const existing = clientMap.get(clientEmail) || 0;
-      if (uploadTime > existing) {
-        clientMap.set(clientEmail, uploadTime);
+  // Use KV list with metadata — single call, no individual gets needed
+  interface KeyMeta { nome?: string; telefone?: string; updatedAt?: number }
+  const clients: { email: string; nome: string; telefone: string; data: number }[] = [];
+  let cursor: string | undefined;
+  do {
+    const listed = await env.CLIENT_META.list<KeyMeta>({ cursor });
+    for (const key of listed.keys) {
+      const meta = key.metadata;
+      if (meta && meta.updatedAt) {
+        // Fast path: metadata available from list()
+        clients.push({
+          email: key.name,
+          nome: meta.nome || '',
+          telefone: meta.telefone || '',
+          data: meta.updatedAt,
+        });
+      } else {
+        // Fallback for old entries without metadata — fetch individually
+        const full = await getClientMeta(env, key.name);
+        clients.push({
+          email: key.name,
+          nome: full?.nome || '',
+          telefone: full?.telefone || '',
+          data: full?.updatedAt || 0,
+        });
       }
     }
-  }
-
-  // Get metadata for each client
-  const clients = await Promise.all(
-    Array.from(clientMap.entries()).map(async ([email, data]) => {
-      const meta = await getClientMeta(env, email);
-      return {
-        email,
-        nome: meta?.nome || '',
-        telefone: meta?.telefone || '',
-        data,
-      };
-    })
-  );
+    cursor = listed.list_complete ? undefined : listed.cursor;
+  } while (cursor);
 
   return clients.sort((a, b) => b.data - a.data);
 }
@@ -561,6 +566,28 @@ export default {
       if (path === '/api/admin/cleanup' && method === 'POST') {
         const result = await cleanupOldPhotos(env);
         return jsonResponse(request, { status: 'ok', ...result });
+      }
+
+      // Migrate all CLIENT_META entries to include KV metadata for fast listing
+      if (path === '/api/admin/migrate-meta' && method === 'POST') {
+        let migrated = 0;
+        let cursor: string | undefined;
+        do {
+          const listed = await env.CLIENT_META.list({ cursor });
+          for (const key of listed.keys) {
+            const raw = await env.CLIENT_META.get(key.name);
+            if (!raw) continue;
+            try {
+              const meta = JSON.parse(raw) as ClientMeta;
+              await env.CLIENT_META.put(key.name, raw, {
+                metadata: { nome: meta.nome, telefone: meta.telefone, updatedAt: meta.updatedAt },
+              });
+              migrated++;
+            } catch {}
+          }
+          cursor = listed.list_complete ? undefined : listed.cursor;
+        } while (cursor);
+        return jsonResponse(request, { status: 'ok', migrated });
       }
 
       if (path === '/api/admin/clients') {
