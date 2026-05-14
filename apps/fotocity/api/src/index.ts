@@ -1,3 +1,6 @@
+import { sendEmail } from './smtp';
+import { buildEmailHtml, BrandConfig } from './email-template';
+
 export interface Env {
   SESSIONS: KVNamespace;
   PHOTOS?: R2Bucket;
@@ -599,6 +602,62 @@ export default {
           const result = await deleteAllPhotos(env, clientId, productId);
           return jsonResponse(request, result);
         }
+      }
+    }
+
+    // Send email endpoint (API key auth)
+    if (path === '/api/send-email' && method === 'POST') {
+      // SMTP disabled when SMTP_USER not configured for this tenant
+      if (!env.SMTP_USER || !env.SMTP_API_KEY) {
+        return jsonResponse(request, { status: 'error', message: 'Email service not configured for this tenant' }, 503);
+      }
+
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || authHeader !== `Bearer ${env.SMTP_API_KEY}`) {
+        return jsonResponse(request, { status: 'error', message: 'Unauthorized' }, 401);
+      }
+
+      try {
+        const body = (await request.json()) as {
+          nome?: string;
+          email?: string;
+          produtos?: { nome: string; foto?: string; url: string }[];
+        };
+
+        if (!body.nome || !body.email || !body.produtos?.length) {
+          return jsonResponse(
+            request,
+            { status: 'error', message: 'Campos obrigatórios: nome, email, produtos[]' },
+            400
+          );
+        }
+
+        const brand = buildBrandConfig(env);
+        const primeiroNome = body.nome.trim().split(/\s+/)[0];
+        const html = buildEmailHtml(primeiroNome, body.produtos, brand);
+
+        await sendEmail(
+          {
+            host: env.SMTP_HOST,
+            port: parseInt(env.SMTP_PORT),
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+            secure: parseInt(env.SMTP_PORT) === 465,
+          },
+          {
+            from: env.SMTP_USER,
+            fromName: brand.name,
+            to: body.email,
+            subject: `${primeiroNome}, envie suas fotos por aqui | ${brand.name}`,
+            html,
+          }
+        );
+
+        return jsonResponse(request, { status: 'ok', message: 'Email enviado com sucesso' });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Erro desconhecido';
+        console.error('Send email error:', message);
+        return jsonResponse(request, { status: 'error', message: `Falha ao enviar email: ${message}` }, 500);
       }
     }
 

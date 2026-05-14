@@ -1,6 +1,7 @@
 name = "fotocity-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
 
 account_id = "1393a4b8ac9bc429259644464a7f874e"
 
@@ -17,6 +18,14 @@ APP_NAME = "fotocity"
 # Credenciais - em produção use secrets: wrangler secret put AUTH_USER
 AUTH_USER = "admin"
 AUTH_PASS = "fotocity2024"
+
+# SMTP Config (Locaweb)
+SMTP_HOST = "email-ssl.com.br"
+SMTP_PORT = "465"
+SMTP_USER = "contato@fotocity.com.br"
+# SMTP_PASS e SMTP_API_KEY devem ser configurados como secrets:
+#   wrangler secret put SMTP_PASS
+#   wrangler secret put SMTP_API_KEY
 
 # Tenant config (CORS, cookies, branding) — defaults aqui são fotocity
 DEFAULT_CORS_ORIGIN = "https://envios.fotocity.com.br"
