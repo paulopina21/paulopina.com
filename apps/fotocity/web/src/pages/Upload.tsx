@@ -2,14 +2,13 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { PhotoEditor, PhotoEditState, renderPhoto, getDefaultEditState } from '../components/PhotoEditor'
 import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
 import { processImageFile, isHeicFile } from '../utils/imageUtils'
+import { config } from '../config'
 
 // Version for debugging
 const APP_VERSION = '1.0.5'
 
-// API base - usa a API do Worker (R2) em produção ou proxy local em dev
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = config.apiUrl
 const WEBHOOK_URL = 'https://n8n.fotocity.com.br/webhook/envio-fotos'
-const WHATSAPP_SUPPORT = '5511957323619'
 
 function formatPhoneBR(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -38,10 +37,11 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, status: '' })
   const [success, setSuccess] = useState(false)
 
+  const qp = new URLSearchParams(window.location.search)
   const [photoSize, setPhotoSize] = useState('')
-  const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
-  const [whats, setWhats] = useState('')
+  const [nome, setNome] = useState(qp.get('nome') || '')
+  const [email, setEmail] = useState(qp.get('email') || '')
+  const [whats, setWhats] = useState(qp.get('telefone') || '')
 
   // Photo editor state
   const [photoEdits, setPhotoEdits] = useState<Map<number, PhotoEditState>>(new Map())
@@ -60,6 +60,9 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
   const defaultSize = params.get('tamanho') || ''
   const lockedSize = params.get('tamanho') || ''
   const allowEditing = params.get('editar') === '1'
+  const prefilledNome = params.get('nome') || ''
+  const prefilledEmail = params.get('email') || ''
+  const prefilledTelefone = params.get('telefone') || ''
 
   // Get current selected size info
   const currentSize = photoSize || defaultSize
@@ -317,7 +320,7 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
 
       // Notify parent window when in embed mode
       if (embed && window.parent !== window) {
-        window.parent.postMessage('fotocity:upload-complete', '*')
+        window.parent.postMessage(config.postMsgKey, '*')
       }
     } catch (err) {
       showMessage('Erro ao enviar fotos. Tente novamente.', 'error')
@@ -333,16 +336,20 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           <>
             <div className="fc-topbar">
               <div className="social-links">
-                <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
-                  <i className="fab fa-instagram"></i>
-                </a>
-                <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
-                  <i className="fab fa-facebook"></i>
-                </a>
+                {config.instagramUrl && (
+                  <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer">
+                    <i className="fab fa-instagram"></i>
+                  </a>
+                )}
+                {config.facebookUrl && (
+                  <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer">
+                    <i className="fab fa-facebook"></i>
+                  </a>
+                )}
               </div>
             </div>
             <div className="fc-header">
-              <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
+              <img src={config.brandLogo} alt={`${config.brandName} Logo`} />
             </div>
           </>
         )}
@@ -397,17 +404,21 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
         <>
           <div className="fc-topbar">
             <div className="social-links">
-              <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
-                <i className="fab fa-instagram"></i>
-              </a>
-              <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
-                <i className="fab fa-facebook"></i>
-              </a>
+              {config.instagramUrl && (
+                <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-instagram"></i>
+                </a>
+              )}
+              {config.facebookUrl && (
+                <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer">
+                  <i className="fab fa-facebook"></i>
+                </a>
+              )}
             </div>
           </div>
 
           <div className="fc-header">
-            <img src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png" alt="FotoCity Logo" />
+            <img src={config.brandLogo} alt={`${config.brandName} Logo`} />
           </div>
         </>
       )}
@@ -587,14 +598,16 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
             >
               <i className="fas fa-check-circle"></i> CONCLUIR ENVIO DE FOTOS
             </button>
-            <a
-              href={`https://wa.me/${WHATSAPP_SUPPORT}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn whats"
-            >
-              <i className="fab fa-whatsapp"></i> Suporte via WhatsApp
-            </a>
+            {config.whatsapp && (
+              <a
+                href={`https://wa.me/${config.whatsapp}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn whats"
+              >
+                <i className="fab fa-whatsapp"></i> Suporte via WhatsApp
+              </a>
+            )}
           </div>
         )}
 
@@ -617,33 +630,45 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
               </div>
               <div className="form-item">
                 <label htmlFor="nome">Nome</label>
-                <input
-                  id="nome"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                />
+                {prefilledNome ? (
+                  <span className="form-value-locked">{nome}</span>
+                ) : (
+                  <input
+                    id="nome"
+                    type="text"
+                    placeholder="Seu nome"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                  />
+                )}
               </div>
               <div className="form-item">
                 <label htmlFor="email">E-mail</label>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+                {prefilledEmail ? (
+                  <span className="form-value-locked">{email}</span>
+                ) : (
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                )}
               </div>
               <div className="form-item">
                 <label htmlFor="whats">WhatsApp</label>
-                <input
-                  id="whats"
-                  type="tel"
-                  placeholder="(11) 91234-5678"
-                  value={whats}
-                  onChange={(e) => setWhats(formatPhoneBR(e.target.value))}
-                />
+                {prefilledTelefone ? (
+                  <span className="form-value-locked">{whats}</span>
+                ) : (
+                  <input
+                    id="whats"
+                    type="tel"
+                    placeholder="(11) 91234-5678"
+                    value={whats}
+                    onChange={(e) => setWhats(formatPhoneBR(e.target.value))}
+                  />
+                )}
               </div>
             </div>
             <div className="form-actions">
@@ -671,15 +696,19 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
         {!embed && (
           <div style={{ textAlign: 'center', marginTop: 30, padding: 10, color: '#999', fontSize: 12 }}>
             <span>v{APP_VERSION}</span>
-            <span style={{ margin: '0 10px' }}>|</span>
-            <a
-              href={`https://wa.me/${WHATSAPP_SUPPORT}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#25d366', textDecoration: 'none' }}
-            >
-              <i className="fab fa-whatsapp"></i> Suporte
-            </a>
+            {config.whatsapp && (
+              <>
+                <span style={{ margin: '0 10px' }}>|</span>
+                <a
+                  href={`https://wa.me/${config.whatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#25d366', textDecoration: 'none' }}
+                >
+                  <i className="fab fa-whatsapp"></i> Suporte
+                </a>
+              </>
+            )}
           </div>
         )}
       </div>

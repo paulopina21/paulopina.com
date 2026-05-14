@@ -18,6 +18,19 @@ APP_NAME = "fotocity"
 AUTH_USER = "admin"
 AUTH_PASS = "fotocity2024"
 
+# Tenant config (CORS, cookies, branding) — defaults aqui são fotocity
+DEFAULT_CORS_ORIGIN = "https://envios.fotocity.com.br"
+COOKIE_DOMAIN = ".paulopina.com"
+BRAND_NAME = "FotoCity"
+BRAND_DOMAIN = "fotocity.com.br"
+BRAND_LOGO_URL = "https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png"
+BRAND_PRIMARY_COLOR = "#d62828"
+BRAND_TAGLINE = "Revelamos suas melhores memórias com qualidade profissional"
+BRAND_WHATSAPP = "5511957323619"
+BRAND_WHATSAPP_DISPLAY = "(11) 95732-3619"
+BRAND_INSTAGRAM = "https://www.instagram.com/fotocityoficial/"
+BRAND_FACEBOOK = "https://www.facebook.com/fotocitygrafica/"
+
 # R2 Bucket para armazenamento de fotos
 [[r2_buckets]]
 binding = "PHOTOS"
@@ -32,3 +45,50 @@ id = "716516f97f914f3aac5b37c5300ea3b0"
 [[kv_namespaces]]
 binding = "CLIENT_META"
 id = "10de2ca817884387b1ae4b7224b19f69"
+
+# ============================================================
+# Tenant: kouritsu
+# Web: https://kouritsu.fotopronto.com.br (Pages, custom domain)
+# API: https://api-kouritsu.paulopina.com (this Worker, env=kouritsu)
+# ============================================================
+[env.kouritsu]
+name = "kouritsu-api"
+
+[[env.kouritsu.routes]]
+pattern = "api-kouritsu.paulopina.com/*"
+zone_name = "paulopina.com"
+
+[env.kouritsu.vars]
+APP_NAME = "kouritsu"
+AUTH_USER = "kouritsu"
+AUTH_PASS = "kouritsu2026"
+
+# SMTP intencionalmente vazio — desativa /api/send-email para este tenant
+SMTP_HOST = ""
+SMTP_PORT = ""
+SMTP_USER = ""
+
+DEFAULT_CORS_ORIGIN = "https://kouritsu.fotopronto.com.br"
+COOKIE_DOMAIN = ".paulopina.com"
+
+BRAND_NAME = "Kodak Moments"
+BRAND_DOMAIN = "kouritsu.fotopronto.com.br"
+BRAND_LOGO_URL = "https://kouritsu.fotopronto.com.br/brand/kouritsu-logo.jpg"
+BRAND_PRIMARY_COLOR = "#E30613"
+BRAND_TAGLINE = ""
+BRAND_WHATSAPP = ""
+BRAND_WHATSAPP_DISPLAY = ""
+BRAND_INSTAGRAM = ""
+BRAND_FACEBOOK = ""
+
+[[env.kouritsu.r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "kouritsu-photos"
+
+[[env.kouritsu.kv_namespaces]]
+binding = "SESSIONS"
+id = "6b04bdb77eef4dbb873f951736476ac5"
+
+[[env.kouritsu.kv_namespaces]]
+binding = "CLIENT_META"
+id = "65719ae49f7e462b9f167822886f557c"

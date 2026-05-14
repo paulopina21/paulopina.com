@@ -5,6 +5,53 @@ export interface Env {
   APP_NAME: string;
   AUTH_USER: string;
   AUTH_PASS: string;
+  SMTP_HOST: string;
+  SMTP_PORT: string;
+  SMTP_USER: string;
+  SMTP_PASS: string;
+  SMTP_API_KEY: string;
+  // Tenant-aware config (optional; fall back to fotocity defaults)
+  DEFAULT_CORS_ORIGIN?: string;
+  COOKIE_DOMAIN?: string;
+  BRAND_NAME?: string;
+  BRAND_DOMAIN?: string;
+  BRAND_LOGO_URL?: string;
+  BRAND_PRIMARY_COLOR?: string;
+  BRAND_TAGLINE?: string;
+  BRAND_WHATSAPP?: string;
+  BRAND_WHATSAPP_DISPLAY?: string;
+  BRAND_INSTAGRAM?: string;
+  BRAND_FACEBOOK?: string;
+}
+
+const FOTOCITY_DEFAULTS = {
+  corsOrigin: 'https://envios.fotocity.com.br',
+  cookieDomain: '.paulopina.com',
+  brand: {
+    name: 'FotoCity',
+    domain: 'fotocity.com.br',
+    logoUrl: 'https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png',
+    primaryColor: '#d62828',
+    tagline: 'Revelamos suas melhores memórias com qualidade profissional',
+    whatsapp: '5511957323619',
+    whatsappDisplay: '(11) 95732-3619',
+    instagram: 'https://www.instagram.com/fotocityoficial/',
+    facebook: 'https://www.facebook.com/fotocitygrafica/',
+  },
+};
+
+function buildBrandConfig(env: Env): BrandConfig {
+  return {
+    name: env.BRAND_NAME || FOTOCITY_DEFAULTS.brand.name,
+    domain: env.BRAND_DOMAIN || FOTOCITY_DEFAULTS.brand.domain,
+    logoUrl: env.BRAND_LOGO_URL || FOTOCITY_DEFAULTS.brand.logoUrl,
+    primaryColor: env.BRAND_PRIMARY_COLOR || FOTOCITY_DEFAULTS.brand.primaryColor,
+    tagline: env.BRAND_TAGLINE ?? FOTOCITY_DEFAULTS.brand.tagline,
+    whatsapp: env.BRAND_WHATSAPP ?? FOTOCITY_DEFAULTS.brand.whatsapp,
+    whatsappDisplay: env.BRAND_WHATSAPP_DISPLAY ?? FOTOCITY_DEFAULTS.brand.whatsappDisplay,
+    instagram: env.BRAND_INSTAGRAM ?? FOTOCITY_DEFAULTS.brand.instagram,
+    facebook: env.BRAND_FACEBOOK ?? FOTOCITY_DEFAULTS.brand.facebook,
+  };
 }
 
 interface ClientMeta {
@@ -14,8 +61,9 @@ interface ClientMeta {
   updatedAt: number;
 }
 
-function getCorsHeaders(request: Request) {
-  const origin = request.headers.get('Origin') || 'https://fotocity.paulopina.com';
+function getCorsHeaders(request: Request, env?: Env) {
+  const fallback = env?.DEFAULT_CORS_ORIGIN || FOTOCITY_DEFAULTS.corsOrigin;
+  const origin = request.headers.get('Origin') || fallback;
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -24,10 +72,10 @@ function getCorsHeaders(request: Request) {
   };
 }
 
-function jsonResponse(request: Request, data: unknown, status = 200) {
+function jsonResponse(request: Request, data: unknown, status = 200, env?: Env) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...getCorsHeaders(request) },
+    headers: { 'Content-Type': 'application/json', ...getCorsHeaders(request, env) },
   });
 }
 
@@ -67,8 +115,9 @@ function getSessionIdFromRequest(request: Request): string | null {
 }
 
 // Cookie configuration for cross-subdomain auth
-function getSessionCookie(sessionId: string, maxAge: number): string {
-  return `session=${sessionId}; Path=/; Domain=.paulopina.com; HttpOnly; Secure; SameSite=None; Max-Age=${maxAge}`;
+function getSessionCookie(env: Env, sessionId: string, maxAge: number): string {
+  const domain = env.COOKIE_DOMAIN || FOTOCITY_DEFAULTS.cookieDomain;
+  return `session=${sessionId}; Path=/; Domain=${domain}; HttpOnly; Secure; SameSite=None; Max-Age=${maxAge}`;
 }
 
 // Client metadata functions
@@ -391,7 +440,7 @@ export default {
         return new Response(JSON.stringify({ status: 'ok', token: sessionId }), {
           headers: {
             'Content-Type': 'application/json',
-            'Set-Cookie': getSessionCookie(sessionId, 86400),
+            'Set-Cookie': getSessionCookie(env, sessionId, 86400),
             ...getCorsHeaders(request),
           },
         });
@@ -408,7 +457,7 @@ export default {
       return new Response(JSON.stringify({ status: 'ok' }), {
         headers: {
           'Content-Type': 'application/json',
-          'Set-Cookie': getSessionCookie('', 0),
+          'Set-Cookie': getSessionCookie(env, '', 0),
           ...getCorsHeaders(request),
         },
       });

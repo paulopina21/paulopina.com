@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { checkSession, logout, getClients, getClientProducts, getProductPhotos, runCleanup, Client } from '../api'
 import { extractSizeFromProductId, parsePhotoSize, PHOTO_SIZES } from '../utils/photoSizes'
+import { config } from '../config'
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = config.apiUrl
 
 interface Product {
   produto: string
@@ -177,6 +178,9 @@ export default function Manager() {
   const [linkEmbed, setLinkEmbed] = useState(false)
   const [linkEditar, setLinkEditar] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [linkNome, setLinkNome] = useState('')
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linkTelefone, setLinkTelefone] = useState('')
 
   // Embed generator state
   const [showEmbedGenerator, setShowEmbedGenerator] = useState(false)
@@ -526,19 +530,23 @@ export default function Manager() {
     <div>
       <div className="fc-topbar">
         <div className="social-links">
-          <a href="https://www.instagram.com/fotocityoficial/" target="_blank" rel="noopener noreferrer">
-            <i className="fab fa-instagram"></i>
-          </a>
-          <a href="https://www.facebook.com/fotocitygrafica/" target="_blank" rel="noopener noreferrer">
-            <i className="fab fa-facebook"></i>
-          </a>
+          {config.instagramUrl && (
+            <a href={config.instagramUrl} target="_blank" rel="noopener noreferrer">
+              <i className="fab fa-instagram"></i>
+            </a>
+          )}
+          {config.facebookUrl && (
+            <a href={config.facebookUrl} target="_blank" rel="noopener noreferrer">
+              <i className="fab fa-facebook"></i>
+            </a>
+          )}
         </div>
       </div>
 
       <div className="fc-header">
         <img
-          src="https://cdn.iset.io/assets/73325/imagens/logo-foto-city.png"
-          alt="FotoCity Logo"
+          src={config.brandLogo}
+          alt={`${config.brandName} Logo`}
           onClick={handleGoHome}
           style={{ cursor: 'pointer' }}
         />
@@ -899,12 +907,15 @@ export default function Manager() {
 
       {/* Link Generator Modal */}
       {showLinkGenerator && (() => {
-        const baseUrl = linkEmbed ? 'https://envios.fotocity.com.br/embed' : 'https://envios.fotocity.com.br/'
+        const baseUrl = linkEmbed ? `${config.publicWebUrl}/embed` : `${config.publicWebUrl}/`
         const queryParts: string[] = []
         if (linkSize) queryParts.push(`tamanho=${encodeURIComponent(linkSize)}`)
         if (linkMin) queryParts.push(`min=${linkMin}`)
         if (linkMax) queryParts.push(`max=${linkMax}`)
         if (linkEditar) queryParts.push(`editar=1`)
+        if (linkNome.trim()) queryParts.push(`nome=${encodeURIComponent(linkNome.trim())}`)
+        if (linkEmail.trim()) queryParts.push(`email=${encodeURIComponent(linkEmail.trim())}`)
+        if (linkTelefone.trim()) queryParts.push(`telefone=${encodeURIComponent(linkTelefone.trim())}`)
         const generatedUrl = queryParts.length > 0 ? `${baseUrl}?${queryParts.join('&')}` : baseUrl
 
         const handleCopy = () => {
@@ -952,6 +963,37 @@ export default function Manager() {
                   </div>
                 </div>
 
+                <div style={{ borderTop: '1px solid #eee', marginTop: 12, paddingTop: 12 }}>
+                  <label style={{ fontWeight: 600, fontSize: 14, color: '#333', marginBottom: 8, display: 'block' }}>Dados do Cliente (opcional)</label>
+                  <div className="form-item">
+                    <label>Nome</label>
+                    <input
+                      type="text"
+                      placeholder="Nome do cliente"
+                      value={linkNome}
+                      onChange={(e) => setLinkNome(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label>E-mail</label>
+                    <input
+                      type="email"
+                      placeholder="email@cliente.com"
+                      value={linkEmail}
+                      onChange={(e) => setLinkEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label>Telefone</label>
+                    <input
+                      type="tel"
+                      placeholder="(11) 91234-5678"
+                      value={linkTelefone}
+                      onChange={(e) => setLinkTelefone(e.target.value)}
+                    />
+                  </div>
+                </div>
+
                 <div className="toggle-row">
                   <label className="toggle-switch">
                     <input type="checkbox" checked={linkEmbed} onChange={(e) => setLinkEmbed(e.target.checked)} />
@@ -989,7 +1031,7 @@ export default function Manager() {
 
       {/* Embed Generator Modal */}
       {showEmbedGenerator && (() => {
-        const embedUrl = 'https://envios.fotocity.com.br/embed'
+        const embedUrl = `${config.publicWebUrl}/embed`
         const queryParts: string[] = []
         if (embedSize) queryParts.push(`tamanho=${encodeURIComponent(embedSize)}`)
         if (embedMin) queryParts.push(`min=${embedMin}`)
@@ -1000,7 +1042,7 @@ export default function Manager() {
         const embedCode = `<iframe src="${fullEmbedUrl}" style="width:100%;height:600px;border:none;" allow="camera"></iframe>
 <script>
 window.addEventListener('message', function(event) {
-  if (event.data === 'fotocity:upload-complete') {
+  if (event.data === '${config.postMsgKey}') {
     var match = window.location.href.match(/-p(\\d+)/);
     if (match) addToCart(match[1]);
   }

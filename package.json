@@ -27,7 +27,11 @@
     "fotocity:api:dev": "npm --workspace apps/fotocity/api run dev",
     "fotocity:api:deploy": "npm --workspace apps/fotocity/api run deploy",
     "fotocity:web:build": "npm --workspace apps/fotocity/web run build",
-    "fotocity:web:deploy": "wrangler pages deploy apps/fotocity/web/dist --project-name=fotocity --branch=main"
+    "fotocity:web:deploy": "wrangler pages deploy apps/fotocity/web/dist --project-name=fotocity --branch=main",
+
+    "kouritsu:api:deploy": "cd apps/fotocity/api && wrangler deploy --env kouritsu",
+    "kouritsu:web:build": "cd apps/fotocity/web && tsc && vite build --mode kouritsu",
+    "kouritsu:web:deploy": "wrangler pages deploy apps/fotocity/web/dist --project-name=kouritsu --branch=main"
   }
 }
 
