@@ -327,27 +327,31 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
         numero_fotos: totalCopies,
         url_album: albumUrl,
       }
-      try {
-        await fetch(config.webhookUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(webhookPayload),
-        })
-      } catch {
-        // Webhook errors are not critical
+      if (config.webhookUrl) {
+        try {
+          await fetch(config.webhookUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+          })
+        } catch {
+          // Webhook errors are not critical
+        }
       }
 
       // Confirmation webhook — fires when client reaches the success screen.
-      try {
-        await fetch(config.confirmationWebhookUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(webhookPayload),
-        })
-      } catch {
-        // Webhook errors are not critical
+      if (config.confirmationWebhookUrl) {
+        try {
+          await fetch(config.confirmationWebhookUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+          })
+        } catch {
+          // Webhook errors are not critical
+        }
       }
 
       // Save sent photos for success screen (tiny thumbs, low heap)

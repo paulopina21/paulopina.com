@@ -15,8 +15,10 @@ export const config = {
   instagramUrl: import.meta.env.VITE_INSTAGRAM_URL ?? 'https://www.instagram.com/fotocityoficial/',
   facebookUrl: import.meta.env.VITE_FACEBOOK_URL ?? 'https://www.facebook.com/fotocitygrafica/',
 
-  webhookUrl: import.meta.env.VITE_WEBHOOK_URL || 'https://n8n.fotocity.com.br/webhook/envio-fotos',
-  confirmationWebhookUrl: import.meta.env.VITE_CONFIRMATION_WEBHOOK_URL || 'https://n8n.fotocity.com.br/webhook/pedidos/envio-fotos-confirmacao',
+  // ?? (não ||) para que VITE_*= vazio no .env desative o webhook (string vazia),
+  // em vez de cair no default fotocity. Upload.tsx só dispara quando a URL é truthy.
+  webhookUrl: import.meta.env.VITE_WEBHOOK_URL ?? 'https://n8n.fotocity.com.br/webhook/envio-fotos',
+  confirmationWebhookUrl: import.meta.env.VITE_CONFIRMATION_WEBHOOK_URL ?? 'https://n8n.fotocity.com.br/webhook/pedidos/envio-fotos-confirmacao',
   publicWebUrl: import.meta.env.VITE_PUBLIC_WEB_URL || 'https://envios.fotocity.com.br',
   managerUrl: import.meta.env.VITE_MANAGER_URL || 'https://envios.fotocity.com.br/manager',
 
