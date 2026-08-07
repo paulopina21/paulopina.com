@@ -346,10 +346,17 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
           formData.append('telefone', whats.trim())
         }
 
-        await fetch(`${API_BASE}/api/photos`, {
+        const res = await fetch(`${API_BASE}/api/photos`, {
           method: 'POST',
           body: formData,
         })
+
+        // fetch só rejeita em falha de rede — 500, 413 e 401 chegam aqui como
+        // resposta normal. Sem esta checagem a tela dizia "enviadas com sucesso"
+        // e descartava as fotos, enquanto a gráfica nunca recebia o pedido.
+        if (!res.ok) {
+          throw new Error(`Falha ao enviar a foto ${i + 1} (HTTP ${res.status})`)
+        }
 
         // Build a tiny thumb for the success screen: prefer the edited preview
         // (already small ~150px) when present, else render one from the original.
@@ -417,10 +424,13 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
         window.parent.postMessage(config.postMsgKey, '*')
       }
     } catch (err) {
+      // As fotos continuam em memória: a limpeza só acontece depois do laço, então
+      // um erro no meio do envio preserva tudo e o cliente pode tentar de novo.
       // Também na caixa junto ao botão: com dezenas de fotos na tela, a mensagem do
       // topo nasce fora da área visível e o cliente nunca a vê.
-      showMessage('Erro ao enviar fotos. Tente novamente.', 'error')
-      setFormAlert({ text: 'Erro ao enviar fotos. Tente novamente.', kind: 'upload' })
+      const texto = 'Erro ao enviar fotos. Suas fotos continuam aqui — tente novamente.'
+      showMessage(texto, 'error')
+      setFormAlert({ text: texto, kind: 'upload' })
     } finally {
       setUploading(false)
     }
