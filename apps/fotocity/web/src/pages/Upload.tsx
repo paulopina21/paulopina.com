@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { PhotoEditor, PhotoEditState, renderPhoto, getDefaultEditState } from '../components/PhotoEditor'
-import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo } from '../utils/photoSizes'
+import { PHOTO_SIZES, parsePhotoSize, PhotoSizeInfo, sanitizeSizeForId } from '../utils/photoSizes'
 import { processImageFile, isHeicFile, makeThumbnail } from '../utils/imageUtils'
+import { validateUploadForm, firstInvalidField, FieldErrors } from '../utils/validation'
 import { config } from '../config'
 
 // Version for debugging
@@ -50,6 +51,19 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
   // Sent photos for success screen
   const [sentPhotos, setSentPhotos] = useState<{ preview: string; copies: number }[]>([])
   const [sentLightbox, setSentLightbox] = useState<number>(-1)
+
+  // Validação do formulário de conclusão.
+  // formAlert carrega a origem da mensagem porque o efeito de revalidação só pode
+  // limpar o resumo de validação: uma falha de upload acontece com o formulário já
+  // válido, então seria apagada pela primeira tecla digitada em seguida.
+  const [errors, setErrors] = useState<FieldErrors>({})
+  const [triedSubmit, setTriedSubmit] = useState(false)
+  const [formAlert, setFormAlert] = useState<{ text: string; kind: 'validation' | 'upload' } | null>(null)
+
+  const tamanhoRef = useRef<HTMLSelectElement>(null)
+  const nomeRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const whatsRef = useRef<HTMLInputElement>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -229,19 +243,51 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
     (minImages === null || totalPhotos >= minImages) &&
     (maxImages === null || totalPhotos <= maxImages)
 
-  const canSubmit = nome.trim().length > 1 &&
-    /.+@.+\..+/.test(email.trim()) &&
-    whats.replace(/\D/g, '').length >= 10
+  // Só marca campo em vermelho depois da primeira tentativa: ninguém é acusado de
+  // erro antes de tentar. A partir daí revalida a cada tecla, e o vermelho some
+  // sozinho conforme o cliente corrige.
+  useEffect(() => {
+    if (!triedSubmit) return
+    const found = validateUploadForm({ tamanho: currentSize, nome, email, whats })
+    setErrors(found)
+    if (Object.keys(found).length === 0) {
+      setFormAlert(prev => (prev?.kind === 'validation' ? null : prev))
+    }
+  }, [triedSubmit, currentSize, nome, email, whats])
 
   const getProductId = () => {
     const base = getToday()
-    const sel = (photoSize || defaultSize).replace(/\s+/g, '').replace(/[^a-zA-Z0-9x-]/g, '')
+    const sel = sanitizeSizeForId(photoSize || defaultSize)
     return sel ? `${base}_${sel}` : base
   }
 
   const handleSubmit = async () => {
-    if (!canSubmit || uploading || !sizeInfo) return
+    if (uploading) return
 
+    const found = validateUploadForm({ tamanho: currentSize, nome, email, whats })
+    setErrors(found)
+    setTriedSubmit(true)
+
+    const first = firstInvalidField(found)
+    if (first) {
+      setFormAlert({ text: 'Faltam dados. Confira os campos marcados em vermelho.', kind: 'validation' })
+      const refs = { tamanho: tamanhoRef, nome: nomeRef, email: emailRef, whats: whatsRef }
+      // focus() já rola o campo para a área visível, abre o teclado no celular e é
+      // anunciado por leitor de tela — melhor que scrollIntoView para os três casos.
+      refs[first].current?.focus()
+      return
+    }
+
+    // Um link com ?tamanho=abc passa na regra de "não vazio" mas não é um tamanho
+    // real. Só acontece com link malformado, então a mensagem aponta para o link.
+    if (!sizeInfo) {
+      setErrors({ tamanho: 'Tamanho de foto inválido neste link' })
+      setFormAlert({ text: 'O link usado tem um tamanho de foto inválido. Fale com o suporte.', kind: 'validation' })
+      tamanhoRef.current?.focus()
+      return
+    }
+
+    setFormAlert(null)
     setUploading(true)
     setUploadProgress({ current: 0, total: files.length, status: 'Preparando...' })
 
@@ -371,7 +417,10 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
         window.parent.postMessage(config.postMsgKey, '*')
       }
     } catch (err) {
+      // Também na caixa junto ao botão: com dezenas de fotos na tela, a mensagem do
+      // topo nasce fora da área visível e o cliente nunca a vê.
       showMessage('Erro ao enviar fotos. Tente novamente.', 'error')
+      setFormAlert({ text: 'Erro ao enviar fotos. Tente novamente.', kind: 'upload' })
     } finally {
       setUploading(false)
     }
@@ -664,17 +713,27 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
             <div className="form-grid">
               <div className="form-item">
                 <label htmlFor="photo-size">Tamanho das Fotos</label>
-                <select
-                  id="photo-size"
-                  value={photoSize || defaultSize}
-                  onChange={(e) => setPhotoSize(e.target.value)}
-                  disabled={!!lockedSize}
-                >
-                  <option value="">SELECIONE O TAMANHO</option>
-                  {PHOTO_SIZES.map(size => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
-                </select>
+                {lockedSize ? (
+                  <span className="form-value-locked">{lockedSize}</span>
+                ) : (
+                  <select
+                    id="photo-size"
+                    ref={tamanhoRef}
+                    className={errors.tamanho ? 'invalid' : ''}
+                    value={photoSize}
+                    onChange={(e) => setPhotoSize(e.target.value)}
+                  >
+                    <option value="">SELECIONE O TAMANHO</option>
+                    {PHOTO_SIZES.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                )}
+                {errors.tamanho && (
+                  <div className="field-error">
+                    <i className="fas fa-exclamation-circle"></i> {errors.tamanho}
+                  </div>
+                )}
               </div>
               <div className="form-item">
                 <label htmlFor="nome">Nome</label>
@@ -683,11 +742,18 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
                 ) : (
                   <input
                     id="nome"
+                    ref={nomeRef}
+                    className={errors.nome ? 'invalid' : ''}
                     type="text"
-                    placeholder="Seu nome"
+                    placeholder="Inserir seu nome"
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
                   />
+                )}
+                {errors.nome && (
+                  <div className="field-error">
+                    <i className="fas fa-exclamation-circle"></i> {errors.nome}
+                  </div>
                 )}
               </div>
               <div className="form-item">
@@ -697,11 +763,18 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
                 ) : (
                   <input
                     id="email"
+                    ref={emailRef}
+                    className={errors.email ? 'invalid' : ''}
                     type="email"
-                    placeholder="seu@email.com"
+                    placeholder="Inserir seu e-mail"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                )}
+                {errors.email && (
+                  <div className="field-error">
+                    <i className="fas fa-exclamation-circle"></i> {errors.email}
+                  </div>
                 )}
               </div>
               <div className="form-item">
@@ -711,18 +784,30 @@ export default function Upload({ embed = false }: { embed?: boolean }) {
                 ) : (
                   <input
                     id="whats"
+                    ref={whatsRef}
+                    className={errors.whats ? 'invalid' : ''}
                     type="tel"
-                    placeholder="(11) 91234-5678"
+                    placeholder="Inserir seu WhatsApp com DDD"
                     value={whats}
                     onChange={(e) => setWhats(formatPhoneBR(e.target.value))}
                   />
                 )}
+                {errors.whats && (
+                  <div className="field-error">
+                    <i className="fas fa-exclamation-circle"></i> {errors.whats}
+                  </div>
+                )}
               </div>
             </div>
+            {formAlert && (
+              <div className="form-error" role="alert">
+                <i className="fas fa-exclamation-triangle"></i> {formAlert.text}
+              </div>
+            )}
             <div className="form-actions">
               <button
-                className={`btn green ${!canSubmit || uploading ? 'disabled' : ''}`}
-                disabled={!canSubmit || uploading}
+                className={`btn green ${uploading ? 'disabled' : ''}`}
+                disabled={uploading}
                 onClick={handleSubmit}
               >
                 <i className="fas fa-paper-plane"></i>
